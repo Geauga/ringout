@@ -1,4 +1,4 @@
-<!-- index.html | Request: Create a local four-player game about knocking players off a map, with bots in empty slots. -->
+<!-- index.html | Request: Add a selectable platformer version to the local four-player knockout game with bots. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,6 +10,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2314171d'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23dcf87b' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <script defer src="engine.js"></script>
+  <script defer src="platformer.js"></script>
   <script defer src="game.js"></script>
 </head>
 <body>
@@ -20,10 +21,10 @@
       <div class="header-actions"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false">Sound off</button><button class="text-button" id="help">How to play <span aria-hidden="true">↗</span></button></div>
     </header>
     <main>
-      <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 1–4 PLAYERS</div><h1>Small arena. <span>Big grudges.</span></h1></div><span class="session-label">NO TEAMS. NO SECOND CHANCES.</span></div>
+      <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 1–4 PLAYERS</div><h1>Small arena. <span>Big grudges.</span></h1></div><div class="mode-switch" role="group" aria-label="Game mode"><button id="mode-arena" aria-pressed="true">Arena</button><button id="mode-platformer" aria-pressed="false">Platformer</button></div></div>
       <div class="game-layout">
         <section class="arena-panel" aria-label="Game arena">
-          <div class="arena-toolbar"><div class="arena-name"><span class="arena-icon">◎</span><span>THE DROP ZONE</span><span class="tag">01</span></div><button id="pause" class="text-button" disabled>Pause <kbd>Esc</kbd></button></div>
+          <div class="arena-toolbar"><div class="arena-name"><span class="arena-icon">◎</span><span id="stage-name">THE DROP ZONE</span><span class="tag" id="stage-number">01</span></div><button id="pause" class="text-button" disabled>Pause <kbd>Esc</kbd></button></div>
           <div class="scoreboard" id="scoreboard" aria-label="Round scores"></div>
           <div class="stage" id="stage">
             <canvas id="arena" width="1000" height="720" tabindex="0" aria-label="Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.">Your browser needs Canvas support to play Ringout.</canvas>
@@ -31,7 +32,7 @@
             <div class="overlay" id="overlay"><div class="overlay-card"><div class="eyebrow" id="overlay-kicker">FOUR ENTER. ONE STAYS.</div><h2 id="overlay-title">LAST ONE<br><em>STANDING.</em></h2><p id="overlay-description">Bump, dash, and send your friends flying.<br>Just don’t get too close to the edge.</p><button class="primary-button" id="start">LET’S RUMBLE <span aria-hidden="true">↗</span></button><div id="overlay-hint">1 HUMAN + 3 BOTS · FIRST TO 3</div></div></div>
             <div id="countdown" class="countdown" aria-live="polite"></div>
             <div id="announcement" class="announcement" role="status" aria-live="polite"></div>
-            <div class="touch-controls" id="touch-controls" aria-label="Touch controls"><div class="touch-pad" id="touch-pad"><span id="touch-stick"></span></div><button id="touch-dash" aria-label="Dash">DASH</button></div>
+            <div class="touch-controls" id="touch-controls" aria-label="Touch controls"><div class="touch-pad" id="touch-pad"><span id="touch-stick"></span></div><div class="touch-actions"><button id="touch-jump" aria-label="Jump" hidden>JUMP</button><button id="touch-dash" aria-label="Dash">DASH</button></div></div>
           </div>
           <div class="arena-bottom"><span><i class="live-dot"></i><span id="match-status">READY WHEN YOU ARE</span></span><span>STAY ON. SEND THEM OFF.</span></div>
         </section>
@@ -39,16 +40,17 @@
           <div class="section-heading"><h2>The lineup</h2><span>04 / 04</span></div>
           <p class="section-description">Bring friends. We’ll fill the empty spots.</p>
           <div id="lineup" class="lineup"></div>
-          <div class="match-rules"><div class="section-heading"><h2>House rules</h2><span>↙</span></div><label class="rule-row" for="win-target"><span>Play until</span><select id="win-target"><option value="3">3 round wins</option><option value="5">5 round wins</option><option value="1">1 round win</option></select></label><div class="rule-row"><span>Arena shrinks</span><span class="rule-value">After 18 sec</span></div><div class="rule-row"><span>Last one standing</span><span class="rule-value">Wins the round</span></div></div>
-          <div class="tip"><span class="tip-icon">✳</span><p><strong>Give them a little nudge.</strong>Dash into rivals to launch them. More damage means more knockback.</p></div>
+          <div class="match-rules"><div class="section-heading"><h2>House rules</h2><span>↙</span></div><label class="rule-row" for="win-target"><span>Play until</span><select id="win-target"><option value="3">3 round wins</option><option value="5">5 round wins</option><option value="1">1 round win</option></select></label><div class="rule-row"><span id="shrink-rule">Arena shrinks</span><span class="rule-value">After 18 sec</span></div><div class="rule-row"><span>Last one standing</span><span class="rule-value">Wins the round</span></div></div>
+          <div class="tip"><span class="tip-icon">✳</span><p id="mode-tip"><strong>Give them a little nudge.</strong>Dash into rivals to launch them. More damage means more knockback.</p></div>
           <button class="restart-button" id="reset" hidden>Back to lobby</button>
         </aside>
       </div>
-      <section class="control-strip" aria-label="Quick instructions"><div><span class="instruction-number">01</span><p><strong>MOVE AROUND</strong><span>Find your footing.</span></p><div class="key-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div></div><div><span class="instruction-number">02</span><p><strong>DASH INTO RIVALS</strong><span>Make a little space.</span></p><kbd class="space-key">SPACE</kbd></div><div><span class="instruction-number">03</span><p><strong>HOLD YOUR GROUND</strong><span>The edge is not your friend.</span></p><span class="edge-icon" aria-hidden="true">↗</span></div></section>
+      <section class="control-strip" aria-label="Quick instructions"><div><span class="instruction-number">01</span><p><strong id="move-label">MOVE AROUND</strong><span id="move-caption">Find your footing.</span></p><div class="key-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div></div><div><span class="instruction-number">02</span><p><strong>DASH INTO RIVALS</strong><span>Make a little space.</span></p><kbd class="space-key">SPACE</kbd></div><div><span class="instruction-number">03</span><p><strong id="survive-label">HOLD YOUR GROUND</strong><span id="survive-caption">The edge is not your friend.</span></p><span class="edge-icon" aria-hidden="true">↗</span></div></section>
       <footer><span>MADE FOR FRIENDLY RIVALRIES.</span><span>Keyboard + gamepad support <span class="footer-separator">/</span> <span id="controller-status">No controllers connected</span></span></footer>
     </main>
   </div>
-  <dialog id="help-dialog"><button class="dialog-close" id="close-help" aria-label="Close instructions">×</button><div class="eyebrow">A CRASH COURSE</div><h2>Be the last one standing.</h2><p>Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.</p><div class="help-keys"><p><strong>Player 1</strong><span>W A S D · Space to dash</span></p><p><strong>Player 2</strong><span>Arrow keys · Enter to dash</span></p><p><strong>Player 3</strong><span>I J K L · U to dash</span></p><p><strong>Player 4</strong><span>T F G H · R to dash</span></p><p><strong>Gamepad</strong><span>Left stick / D-pad · A / ✕ to dash</span></p><p><strong>Touch</strong><span>Left thumbstick · DASH button</span></p></div><p class="help-note">Select a keyboard, bot, or connected controller for each player in the lobby. Controllers must use a standard browser mapping. Some keyboards limit simultaneous key presses; gamepads work well for four people.</p><p class="help-note">Press Esc to pause. A ring around your fighter shows your dash recharge. The first player to reach the selected number of round wins takes the match.</p><button class="primary-button" id="got-it">GOT IT <span>↗</span></button></dialog>
+  <dialog id="help-dialog"><button class="dialog-close" id="close-help" aria-label="Close instructions">×</button><div class="eyebrow">A CRASH COURSE</div><h2>Be the last one standing.</h2><p id="help-description">Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.</p><div class="help-keys" id="help-keys"></div><p class="help-note">Select a keyboard, bot, or connected controller for each player in the lobby. Controllers must use a standard browser mapping. Some keyboards limit simultaneous key presses; gamepads work well for four people.</p><p class="help-note">Press Esc to pause. A ring around your fighter shows your dash recharge. The first player to reach the selected number of round wins takes the match.</p><button class="primary-button" id="got-it">GOT IT <span>↗</span></button></dialog>
 </body>
 </html>
 <!-- Purpose: Playable local knockout game interface. Upstream: user prompt; no existing source. Environment: modern desktop/touch browser. Generated: 2026-09-11 America/New_York. New file: all lines implement the requested game. -->
+<!-- Updated: 2026-09-14 America/New_York. Changes: line 13 loads platformer.js; 24 selects mode; 27 identifies stage; 35 adds touch jump; 43-44 update rules/tips; 48 and 52 provide mode-specific instructions. -->
