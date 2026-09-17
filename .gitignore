@@ -1,6 +1,7 @@
 # .gitignore
 # Request: Keep temporary game validation and hosting artifacts out of source control.
 node_modules/
+.pnpm-store/
 .sites-runtime/
 .tmp/
 .env
@@ -8,4 +9,8 @@ node_modules/
 !.env.example
 *.tar.gz
 *.zip
+.private/
+.data/
+release/
+dist/
 # Purpose: Exclude transient outputs. Upstream: local game project. Environment: Git. Generated: 2026-09-11 America/New_York.

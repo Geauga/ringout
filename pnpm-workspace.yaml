@@ -1,0 +1,5 @@
+# pnpm-workspace.yaml
+# Request: Allow only the required build-time esbuild binary installation.
+allowBuilds:
+  esbuild: true
+# Purpose: Dependency build policy. Upstream: Drizzle Kit. Environment: pnpm 11. Generated: 2026-09-15 America/New_York.

@@ -12,13 +12,14 @@
   <script defer src="engine.js"></script>
   <script defer src="platformer.js"></script>
   <script defer src="game.js"></script>
+  <script defer src="access.js"></script>
 </head>
 <body>
   <div class="shell">
     <header class="header">
       <a class="brand" href="./" aria-label="Ringout home"><span class="brand-mark" aria-hidden="true"></span>RINGOUT<span class="brand-period">.</span></a>
       <span class="edition">THE COUCH COMPETITION</span>
-      <div class="header-actions"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false">Sound off</button><button class="text-button" id="help">How to play <span aria-hidden="true">↗</span></button></div>
+      <div class="header-actions"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false">Sound off</button><button class="text-button" id="help">How to play <span aria-hidden="true">↗</span></button><form method="post" action="/lock"><button class="text-button" type="submit">Lock game</button></form></div>
     </header>
     <main>
       <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 1–4 PLAYERS</div><h1>Small arena. <span>Big grudges.</span></h1></div><div class="mode-switch" role="group" aria-label="Game mode"><button id="mode-arena" aria-pressed="true">Arena</button><button id="mode-platformer" aria-pressed="false">Platformer</button></div></div>
@@ -52,5 +53,6 @@
   <dialog id="help-dialog"><button class="dialog-close" id="close-help" aria-label="Close instructions">×</button><div class="eyebrow">A CRASH COURSE</div><h2>Be the last one standing.</h2><p id="help-description">Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.</p><div class="help-keys" id="help-keys"></div><p class="help-note">Select a keyboard, bot, or connected controller for each player in the lobby. Controllers must use a standard browser mapping. Some keyboards limit simultaneous key presses; gamepads work well for four people.</p><p class="help-note">Press Esc to pause. A ring around your fighter shows your dash recharge. The first player to reach the selected number of round wins takes the match.</p><button class="primary-button" id="got-it">GOT IT <span>↗</span></button></dialog>
 </body>
 </html>
+<!-- Updated: 2026-09-15 America/New_York. Lines 15 and 22 add session expiry handling and a server-side Lock game action; source moved from dist to game. -->
 <!-- Purpose: Playable local knockout game interface. Upstream: user prompt; no existing source. Environment: modern desktop/touch browser. Generated: 2026-09-11 America/New_York. New file: all lines implement the requested game. -->
 <!-- Updated: 2026-09-14 America/New_York. Changes: line 13 loads platformer.js; 24 selects mode; 27 identifies stage; 35 adds touch jump; 43-44 update rules/tips; 48 and 52 provide mode-specific instructions. -->

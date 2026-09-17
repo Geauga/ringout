@@ -1,0 +1,16 @@
+{
+  "name": "ringout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Four-player local arena and platformer with server-verified PIN access",
+  "engines": { "node": ">=24.0.0" },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node server.cjs",
+    "setup": "node scripts/setup-pin.mjs",
+    "test": "node test-engine.cjs && node test-platformer.cjs && node test-security.mjs",
+    "db:generate": "drizzle-kit generate"
+  },
+  "devDependencies": { "drizzle-kit": "0.31.10", "drizzle-orm": "0.45.2" }
+}

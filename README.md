@@ -4,7 +4,13 @@ A local four-player arena game. Dash into other fighters to knock them off the p
 
 Choose **Arena** for the original top-down game, or **Platformer** for the side-view version. Switch modes in the lobby; your player assignments and round-win target are preserved.
 
-Open `dist/index.html` directly in a modern browser, or run `node server.cjs` and visit `http://127.0.0.1:4173`. No package installation is required. Google Fonts is optional; system fonts work without internet.
+The game now requires an eight-digit PIN verified by the server. The downloadable `RINGOUT-secure.zip` needs **Node.js 24 or newer**. Extract it and double-click `start.cmd` on Windows, or run `node scripts/setup-pin.mjs` followed by `node server.cjs` on Windows, macOS or Linux. Visit `http://127.0.0.1:4173`. Your generated PIN is in `.private/access-pin.txt`. The release needs no package installation. Google Fonts is optional; system fonts work without internet.
+
+From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check both game modes and access security. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`.
+
+Use **Lock game** to revoke the current session. Sessions last eight hours, and loaded tabs check access every minute. Eight login attempts are allowed per address per 15-minute window; a shared 100-attempt budget also limits distributed guessing. Rate limits and hashed session tokens persist in local SQLite or hosted D1. The server refuses to serve game assets when access configuration is missing.
+
+To change the local PIN, stop the server, run `node scripts/setup-pin.mjs --rotate`, read the new PIN file, and restart. For the hosted Site, also update its secret `RINGOUT_PIN_HASH` with the verifier from `.env`, then redeploy. Rotation invalidates previous sessions. Never commit `.env`, `.private/`, or `.data/`. The downloadable package generates a separate PIN for each installation; it does not contain the hosted PIN.
 
 1: Player 1 uses W/A/S/D and Space to dash.
 
@@ -28,4 +34,4 @@ In Platformer, release and press jump again in midair for a second jump. Landing
 
 Platformer validation: `node test-platformer.cjs` verifies double jumps, no third jump, landing reset, one-way platforms, four independent player inputs, pause, dash knockouts, erosion, scoring/draws, and 20 reproducible first-to-three matches. Original arena checks still run independently.
 
-Execution location: local Windows Git repository. Gameplay executes entirely in the browser; there is no online multiplayer server. Sites hosting serves the same static assets privately. No GitHub remote was configured at project creation.
+Execution location: local Windows Git repository. Gameplay executes in the browser and remains shared-device multiplayer. The Node/Workers server controls access only. Author-written game files live in `game/`; `dist/server/index.js` is the generated server bundle. Sites hosting retains owner-only access and adds the same PIN gate. The GitHub destination selected from the user's existing empty repository is `Geauga/klllklk` (private). See `SECURITY.md` for deployment and access details.

@@ -1,7 +1,7 @@
 // test-platformer.cjs
 // Request: Validate double jumping, landing, platform pass-through, side knockouts, shrinking, round reset, and bot matches.
 const assert=require('node:assert/strict');
-const {PlatformerEngine}=require('./dist/platformer.js');
+const {PlatformerEngine}=require('./game/platformer.js');
 const step=(g,seconds,inputs=[])=>{for(let t=0;t<seconds;t+=1/120)g.step(1/120,inputs);};
 const fresh=()=>{const g=new PlatformerEngine();g.configure(['keyboard','keyboard','keyboard','keyboard'],3);g.start();step(g,3.05);return g;};
 let g=fresh(),p=g.players[0];
@@ -44,3 +44,5 @@ console.log('PASS: 20 seeded platformer matches completed:',durations.join(', ')
 console.log({jumps,dashes,knockouts});
 console.log('All platformer checks passed.');
 // Purpose: Validate user-visible platformer rules and bot completion. Upstream: dist/platformer.js, the side-view game engine. Environment: Node.js built-ins. Generated: 2026-09-14 America/New_York. New file: all lines.
+
+// Updated: 2026-09-15 America/New_York. Import lines now use game/ after separating authored source from protected build output.

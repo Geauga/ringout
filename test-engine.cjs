@@ -1,7 +1,7 @@
 // test-engine.cjs
 // Request: Verify knockout behavior, four independent inputs, paused time, shrinking bounds, and complete bot matches.
 const assert = require('node:assert/strict');
-const { ArenaEngine } = require('./dist/engine.js');
+const { ArenaEngine } = require('./game/engine.js');
 const advance=(game,seconds,inputs=[])=>{for(let t=0;t<seconds;t+=1/120)game.step(1/120,inputs);};
 const local=()=>{const g=new ArenaEngine();g.configure(['keyboard','keyboard','keyboard','keyboard'],3);g.start();advance(g,3.1);return g;};
 let g=local();
@@ -31,3 +31,5 @@ for(let seed=1;seed<=20;seed++){
 console.log('PASS: 20 seeded bot matches reached a first-to-three winner; simulated durations:',durations.join(', '),'seconds');
 console.log('All gameplay validation checks passed.');
 // Purpose: Reproducible gameplay regression checks. Upstream: dist/engine.js, the knockout simulation. Environment: Node.js built-in assert; no packages. Generated: 2026-09-11 America/New_York. New file: all lines.
+
+// Updated: 2026-09-15 America/New_York. Import lines now use game/ after separating authored source from protected build output.
