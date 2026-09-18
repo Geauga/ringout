@@ -57,8 +57,19 @@ const concurrent = await Promise.all(Array.from({ length: 12 }, () => login('999
 assert.equal(concurrent.filter(x => x.status === 401).length, 8, 'atomic attempt budget');
 assert.equal(concurrent.filter(x => x.status === 429).length, 4);
 now += 900;
+for (let i = 0; i < 100; i++) assert.equal((await login('bad', '192.0.2.5')).status, i < 8 ? 401 : 429, 'blocked address stays throttled');
+DB.close(); DB = openDatabase(fileURLToPath(filename), migrations);
+assert.equal((await login(pin, '192.0.2.6')).status, 303, 'blocked address cannot lock out a different address after restart');
+const globalBudget = await DB.prepare('SELECT attempts FROM pin_attempts WHERE bucket = ?').bind(`global:${Math.floor(now / 900)}`).first();
+assert.equal(globalBudget.attempts, 9, 'only eight admitted guesses and one successful login consume the global budget');
+console.log('PASS: per-address rejected attempts preserve the global login budget across restart');
+now += 900;
 for (let i = 0; i < 100; i++) assert.equal((await login('bad', `198.51.100.${i}`)).status, 401);
 assert.equal((await login(pin, '203.0.113.1')).status, 429, 'global distributed attempt budget');
+now += 900;
+const distributed = await Promise.all(Array.from({ length: 120 }, (_, i) => login('bad', `198.51.100.${i}`)));
+assert.equal(distributed.filter(x => x.status === 401).length, 100, 'concurrent global attempt budget remains atomic');
+assert.equal(distributed.filter(x => x.status === 429).length, 20);
 const { default: bundle } = await import('./dist/server/index.js');
 assert.equal((await bundle.fetch(request('/engine.js'), env())).status, 401, 'bundled assets stay protected');
 now += 900;
@@ -73,3 +84,4 @@ assert.ok(!output.includes(verifier) && !output.includes(pin), 'no test secrets 
 DB.close();
 console.log('Security checks passed: protected assets, PIN verification, CSRF, cookies, expiry, rotation, logout, restart persistence, concurrent/global throttling and built bundle.');
 // Purpose: Consequential security regression checks. Upstream: shared Worker and real local SQLite. Environment: Node 24. Generated: 2026-09-15 America/New_York. New file, all lines.
+// Updated: 2026-09-17 America/New_York. Lines 60-66 cover repeated blocked requests and restart persistence; lines 70-73 cover concurrent distributed guessing without weakening the global limit.

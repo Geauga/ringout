@@ -60,8 +60,14 @@
   }
   function lockSetup(locked){for(let i=0;i<4;i++)$(`player-${i}`).disabled=locked;$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
+  function controllersReady(){
+    const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
+    if(missing){$('overlay-description').textContent='Reconnect your controller or choose different controls in the lobby.';return false;}
+    return true;
+  }
   function start(){
     if(engine.phase==='paused'){resume();return;}
+    if(!controllersReady())return;
     resetInput();engine.start();effects.length=0;trails.length=0;lockSetup(true);$('overlay').hidden=true;$('announcement').textContent='';document.body.classList.add('playing');canvas.focus({preventScroll:true});initAudio();updateUI();
   }
   function lobby(){engine.lobby();resetInput();effects.length=0;trails.length=0;lockSetup(false);document.body.classList.remove('playing');$('overlay').hidden=false;applyModeUI();$('start').innerHTML='LET’S RUMBLE <span aria-hidden="true">↗</span>';$('pause').innerHTML='Pause <kbd>Esc</kbd>';$('countdown').textContent='';$('announcement').textContent='';configure();updateUI();}
@@ -69,8 +75,7 @@
     if(!engine.pause())return;resetInput();document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='TIME OUT';$('overlay-title').innerHTML='MATCH<br><em>PAUSED.</em>';$('overlay-description').textContent=message;$('start').innerHTML='KEEP PLAYING <span aria-hidden="true">↗</span>';$('pause').innerHTML='Resume <kbd>Esc</kbd>';$('countdown').textContent='';updateUI();
   }
   function resume(){
-    const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
-    if(missing){$('overlay-description').textContent='Reconnect your controller, or return to the lobby to change controls.';return;}
+    if(!controllersReady())return;
     engine.resume();resetInput();$('overlay').hidden=true;$('pause').innerHTML='Pause <kbd>Esc</kbd>';document.body.classList.add('playing');canvas.focus({preventScroll:true});updateUI();
   }
   function announce(message,seconds=2.4){$('announcement').textContent=message;announcementUntil=visualTime+seconds;}
@@ -194,7 +199,7 @@
   window.addEventListener('blur',()=>{pause('The game paused while you were away.');resetInput();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){pause('The game paused while you were away.');resetInput();}});
   $('start').addEventListener('click',start);$('pause').addEventListener('click',()=>engine.phase==='paused'?resume():pause());$('reset').addEventListener('click',lobby);
-  $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;initAudio();$('sound').textContent=soundEnabled?'Sound on':'Sound off';$('sound').setAttribute('aria-label',soundEnabled?'Mute sound':'Enable sound');$('sound').setAttribute('aria-pressed',String(soundEnabled));if(soundEnabled)tone(500,.12);});
+  $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;initAudio();$('sound').textContent=soundEnabled?'Sound on':'Sound off';$('sound').setAttribute('aria-label',soundEnabled?'Mute sound':'Enable sound');$('sound').setAttribute('aria-pressed',String(soundEnabled));if(soundEnabled)tone(500,.12);if(['countdown','playing','roundOver'].includes(engine.phase))canvas.focus({preventScroll:true});});
   $('help').addEventListener('click',()=>{helpWasRunning=['playing','countdown','roundOver'].includes(engine.phase);if(helpWasRunning)pause();$('help-dialog').showModal();});
   $('close-help').addEventListener('click',()=>$('help-dialog').close());$('got-it').addEventListener('click',()=>$('help-dialog').close());$('help-dialog').addEventListener('close',()=>{if(helpWasRunning)resume();helpWasRunning=false;});
   const touchPad=$('touch-pad');let touchPointer=null;
@@ -217,3 +222,4 @@
 })();
 // Purpose: Render and operate the playable game. Upstream: engine.js (simulation) and index.html (interface). Environment: modern browser, standard gamepad API, optional Web Audio and WebMCP. Generated: 2026-09-11 America/New_York. New file: all lines.
 // Updated: 2026-09-14 America/New_York. Changes: lines 5-14 select engines/input state; 20-55 add mode selection, help, and hints; 61-67 lock/reset mode controls; 79-85 map jump and dash; 103-106 add jump/shrink effects; 117 updates status; 124 and 141-161 render side-view platforms; 177 shows jumps; 205 adds touch jump; 211-212 expose mode state and switching. Original ArenaEngine behavior and debug output preserved.
+// Updated: 2026-09-17 America/New_York. Lines 63-70 and 78 validate assigned controllers before starting/replaying or resuming; line 202 restores canvas focus after an in-match sound toggle. Purpose/upstream/environment remain as documented above.
