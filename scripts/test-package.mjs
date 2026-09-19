@@ -23,6 +23,10 @@ try {
   const login = await fetch(origin + '/unlock', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: 'pin=' + pin, redirect: 'manual' });
   assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie').split(';')[0];
+  const maps = await fetch(origin + '/api/maps', { headers: { cookie } });
+  assert.equal(maps.status, 200); assert.deepEqual((await maps.json()).maps, []);
+  const newMap = await fetch(origin + '/api/maps', { method: 'POST', headers: { Origin: origin, cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({map:{name:'Package smoke map',platforms:[{id:'floor',x:190,y:540,w:620}]}}) });
+  assert.equal(newMap.status,201,'fresh package applies custom-map migration');
   assert.match(await (await fetch(origin + '/platformer.js', { headers: { cookie } })).text(), /PlatformerEngine/);
   assert.equal((await fetch(origin + '/lock', { method: 'POST', headers: { Origin: 'https://wrong.example', cookie }, redirect: 'manual' })).status, 403);
   assert.equal((await fetch(origin + '/lock', { method: 'POST', headers: { Origin: origin, cookie }, redirect: 'manual' })).status, 303);
@@ -30,3 +34,4 @@ try {
   console.log('Extracted package passed: setup, server startup, PIN sign-in, protected platformer, CSRF rejection and logout revocation.');
 } finally { child.kill(); }
 // Purpose: Release integration check. Upstream: extracted release and server adapter. Environment: Node 24. Generated: 2026-09-16 America/New_York. New file, all lines.
+// Updated: 2026-09-18 America/New_York. Lines 26-29 verify the new map migration and authenticated create/list API in a fresh package.

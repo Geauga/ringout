@@ -4,11 +4,12 @@
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
   let engine=new ArenaEngine();
+  let selectedMap=RingoutMaps.presets[0];
   const platforming=()=>engine instanceof PlatformerEngine;
   const keys=new Set(),effects=[],trails=[];
   const bindings=[['KeyW','KeyS','KeyA','KeyD','Space'],['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'],['KeyI','KeyK','KeyJ','KeyL','KeyU'],['KeyT','KeyG','KeyF','KeyH','KeyR']];
   const hints=['W A S D  /  SPACE','ARROW KEYS  /  ENTER','I J K L  /  U','T F G H  /  R'];
-  const platformHints=['A/D MOVE · W JUMP · SPACE DASH','←/→ MOVE · ↑ JUMP · ENTER DASH','J/L MOVE · I JUMP · U DASH','F/H MOVE · T JUMP · R DASH'];
+  const platformHints=['A/D MOVE · W JUMP · S DROP · SPACE DASH','←/→ MOVE · ↑ JUMP · ↓ DROP · ENTER DASH','J/L MOVE · I JUMP · K DROP · U DASH','F/H MOVE · T JUMP · G DROP · R DASH'];
   const allKeys=new Set(bindings.flat());
   let last=performance.now(),accumulator=0,visualTime=0,shake=0,soundEnabled=false,audioContext=null,announcementUntil=0,padSignature='',hudSignature='',touch={x:0,y:0,dash:false,jump:false},helpWasRunning=false,lastCount='',lastPadCheck=0;
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25,6 +26,7 @@
     if(engine.phase!=='lobby')throw new Error('Return to the lobby before changing game mode.');
     if(!['arena','platformer'].includes(mode))throw new Error('Choose arena or platformer.');
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
+    if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
   }
@@ -32,7 +34,7 @@
   function applyModeUI(){
     const p=platforming();document.body.classList.toggle('platformer-mode',p);
     $('mode-arena').setAttribute('aria-pressed',String(!p));$('mode-platformer').setAttribute('aria-pressed',String(p));
-    $('stage-name').textContent=p?'THE HIGH GROUND':'THE DROP ZONE';$('stage-number').textContent=p?'02':'01';
+    $('stage-name').textContent=p?engine.mapDefinition.name.toUpperCase():'THE DROP ZONE';$('stage-number').textContent=p?'02':'01';mapUI?.setMode(p);
     $('overlay-kicker').textContent=p?'JUMP IN. KNOCK THEM OUT.':'FOUR ENTER. ONE STAYS.';
     $('overlay-title').innerHTML=p?'TAKE THE<br><em>HIGH GROUND.</em>':'LAST ONE<br><em>STANDING.</em>';
     $('overlay-description').innerHTML=p?'Jump between platforms. Dash into rivals.<br>Use your second jump to make it back.':'Bump, dash, and send your friends flying.<br>Just don’t get too close to the edge.';
@@ -41,9 +43,9 @@
     $('move-label').textContent=p?'MOVE & JUMP':'MOVE AROUND';$('move-caption').textContent=p?'A / D to move. W to jump.':'Find your footing.';
     $('survive-label').textContent=p?'DOUBLE JUMP TO RECOVER':'HOLD YOUR GROUND';$('survive-caption').textContent=p?'Release W, then tap it again.':'The edge is not your friend.';
     $('touch-jump').hidden=!p;
-    canvas.setAttribute('aria-label',p?'Platformer knockout game. A and D to move, W to double jump, Space to dash. Escape to pause.':'Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.');
-    $('help-description').textContent=p?'Jump between the four one-way platforms and dash into rivals. Tap jump a second time in midair to recover, and land to restore both jumps. Dash goes left or right. Fall off the bottom or fly beyond the side boundaries and you are out. Platforms start shrinking after 18 seconds.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.';
-    const rows=p?['A / D move · W jump · Space dash','← / → move · ↑ jump · Enter dash','J / L move · I jump · U dash','F / H move · T jump · R dash','Left stick / D-pad · A / ✕ jump · X / □ dash','Thumbstick · JUMP · DASH']:['W A S D · Space to dash','Arrow keys · Enter to dash','I J K L · U to dash','T F G H · R to dash','Left stick / D-pad · A / ✕ to dash','Left thumbstick · DASH button'];
+    canvas.setAttribute('aria-label',p?'Platformer knockout game. A and D to move, W to double jump, S to drop through cyan ledges, Space to dash. Escape to pause.':'Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.');
+    $('help-description').textContent=p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through. Platforms start shrinking after 18 seconds.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.';
+    const rows=p?['A / D move · W jump · S drop · Space dash','← / → move · ↑ jump · ↓ drop · Enter dash','J / L move · I jump · K drop · U dash','F / H move · T jump · G drop · R dash','Stick / D-pad down to drop · A / ✕ jump · X / □ dash','Thumbstick down to drop · JUMP · DASH']:['W A S D · Space to dash','Arrow keys · Enter to dash','I J K L · U to dash','T F G H · R to dash','Left stick / D-pad · A / ✕ to dash','Left thumbstick · DASH button'];
     $('help-keys').innerHTML=rows.map((row,i)=>`<p><strong>${['Player 1','Player 2','Player 3','Player 4','Gamepad','Touch'][i]}</strong><span>${row}</span></p>`).join('');
   }
   function configure(){
@@ -58,7 +60,7 @@
   function drawScores(){
     $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span></div>`).join('');
   }
-  function lockSetup(locked){for(let i=0;i<4;i++)$(`player-${i}`).disabled=locked;$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;}
+  function lockSetup(locked){for(let i=0;i<4;i++)$(`player-${i}`).disabled=locked;$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -66,6 +68,7 @@
     return true;
   }
   function start(){
+    if(mapUI?.isOpen())return;
     if(engine.phase==='paused'){resume();return;}
     if(!controllersReady())return;
     resetInput();engine.start();effects.length=0;trails.length=0;lockSetup(true);$('overlay').hidden=true;$('announcement').textContent='';document.body.classList.add('playing');canvas.focus({preventScroll:true});initAudio();updateUI();
@@ -84,8 +87,8 @@
   function readInputs(){
     const connected=navigator.getGamepads?.()||[];
     return engine.modes.map((mode,i)=>{
-      if(mode==='keyboard'){const b=bindings[i];let x=Number(keys.has(b[3]))-Number(keys.has(b[2])),y=Number(keys.has(b[1]))-Number(keys.has(b[0]));if(i===0){x+=touch.x;y+=touch.y;}return{x,y,jump:keys.has(b[0])||(i===0&&(touch.jump||touch.y<-.6)),dash:keys.has(b[4])||(i===0&&touch.dash)};}
-      if(mode.startsWith('gamepad')){const pad=connected[Number(mode.slice(-1))];if(!pad)return{x:0,y:0,dash:false,jump:false};let x=pad.axes[0]||0,y=pad.axes[1]||0;x=Math.abs(x)<.18?0:x;y=Math.abs(y)<.18?0:y;x+=(pad.buttons[15]?.pressed?1:0)-(pad.buttons[14]?.pressed?1:0);y+=(pad.buttons[13]?.pressed?1:0)-(pad.buttons[12]?.pressed?1:0);return{x,y,jump:!!pad.buttons[0]?.pressed,dash:!!pad.buttons[platforming()?2:0]?.pressed};}
+      if(mode==='keyboard'){const b=bindings[i];let x=Number(keys.has(b[3]))-Number(keys.has(b[2])),y=Number(keys.has(b[1]))-Number(keys.has(b[0]));if(i===0){x+=touch.x;y+=touch.y;}return{x,y,drop:keys.has(b[1])||(i===0&&touch.y>.6),jump:keys.has(b[0])||(i===0&&(touch.jump||touch.y<-.6)),dash:keys.has(b[4])||(i===0&&touch.dash)};}
+      if(mode.startsWith('gamepad')){const pad=connected[Number(mode.slice(-1))];if(!pad)return{x:0,y:0,dash:false,jump:false,drop:false};let x=pad.axes[0]||0,y=pad.axes[1]||0;x=Math.abs(x)<.18?0:x;y=Math.abs(y)<.18?0:y;x+=(pad.buttons[15]?.pressed?1:0)-(pad.buttons[14]?.pressed?1:0);y+=(pad.buttons[13]?.pressed?1:0)-(pad.buttons[12]?.pressed?1:0);return{x,y,drop:y>.6,jump:!!pad.buttons[0]?.pressed,dash:!!pad.buttons[platforming()?2:0]?.pressed};}
       return{x:0,y:0,dash:false};
     });
   }
@@ -152,13 +155,15 @@
     // Display the playable ledges, their remaining width, and the lower knockout boundary.
     for(const s of engine.platforms){
       if(s.w<=0)continue;
+      if(s.motion){const base=engine.mapDefinition.platforms.find(p=>p.id===s.id),cx=base.x+base.w/2;ctx.strokeStyle='#8dcce34d';ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(cx,base.y);ctx.lineTo(cx+(s.motion.axis==='x'?s.motion.distance:0),base.y+(s.motion.axis==='y'?s.motion.distance:0));ctx.stroke();ctx.setLineDash([]);}
       ctx.fillStyle='#070c1480';ctx.fillRect(s.x+7,s.y+12,s.w,s.h+10);
       const slab=ctx.createLinearGradient(0,s.y,0,s.y+s.h);slab.addColorStop(0,'#526273');slab.addColorStop(1,'#2d3949');ctx.fillStyle=slab;ctx.fillRect(s.x,s.y,s.w,s.h);
-      ctx.fillStyle=engine.shrinking?'#dcf87b':'#a9c095';ctx.fillRect(s.x,s.y,s.w,5);
+      ctx.fillStyle=s.dropThrough?'#80dce9':engine.shrinking?'#dcf87b':'#a9c095';ctx.fillRect(s.x,s.y,s.w,5);
       ctx.fillStyle='#82999c55';ctx.fillRect(s.x,s.y+s.h-3,s.w,3);
       ctx.save();ctx.beginPath();ctx.rect(s.x,s.y+5,s.w,s.h-5);ctx.clip();ctx.strokeStyle='#0f192766';ctx.lineWidth=7;
       for(let x=s.x-20;x<s.x+s.w;x+=27){ctx.beginPath();ctx.moveTo(x,s.y+5);ctx.lineTo(x+16,s.y+s.h);ctx.stroke();}ctx.restore();
       ctx.fillStyle='#dcf87b';ctx.fillRect(s.x,s.y-2,5,9);ctx.fillRect(s.x+s.w-5,s.y-2,5,9);
+      if((s.motion||s.dropThrough)&&s.w>35){ctx.fillStyle=s.dropThrough?'#80dce9':'#c4e3f2';ctx.textAlign='center';ctx.font='700 12px Arial,sans-serif';ctx.fillText(`${s.motion?(s.motion.axis==='x'?'↔ ':'↕ '):''}${s.dropThrough?'↓':''}`,s.x+s.w/2,s.y-9);}
     }
     ctx.fillStyle='#667994';ctx.font='600 11px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText('DOUBLE JUMP  ·  DASH  ·  STAY ON',500,115);
     const danger=ctx.createLinearGradient(0,665,0,720);danger.addColorStop(0,'#ff847a00');danger.addColorStop(1,'#ff847a24');ctx.fillStyle=danger;ctx.fillRect(0,665,1000,55);
@@ -192,6 +197,7 @@
   }
   function frame(now){const dt=Math.min((now-last)/1000,.05);last=now;visualTime+=dt;accumulator+=dt;const inputs=readInputs();while(accumulator>=1/120){engine.step(1/120,inputs);accumulator-=1/120;}handleEvents();updateUI();if(visualTime>announcementUntil)$('announcement').textContent='';if(now-lastPadCheck>750){updatePads();lastPadCheck=now;}render(dt);requestAnimationFrame(frame);}
   document.addEventListener('keydown',e=>{
+    if(mapUI?.isOpen())return;
     const formTarget=/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName);if(e.code==='Escape'&&!$('help-dialog').open){e.preventDefault();if(engine.phase==='paused')resume();else pause();return;}
     if(!formTarget&&!$('help-dialog').open&&allKeys.has(e.code)){if(engine.phase!=='lobby'){e.preventDefault();keys.add(e.code);}}
   });
@@ -209,11 +215,20 @@
   $('touch-dash').addEventListener('pointerdown',e=>{e.preventDefault();$('touch-dash').setPointerCapture(e.pointerId);touch.dash=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])$('touch-dash').addEventListener(event,()=>{touch.dash=false;});
   $('touch-jump').addEventListener('pointerdown',e=>{e.preventDefault();$('touch-jump').setPointerCapture(e.pointerId);touch.jump=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])$('touch-jump').addEventListener(event,()=>{touch.jump=false;});
   window.addEventListener('gamepadconnected',updatePads);window.addEventListener('gamepaddisconnected',updatePads);
+  const mapUI=window.RingoutMapEditor?.create({isLobby:()=>engine.phase==='lobby',onSelect:map=>{
+    if(engine.phase!=='lobby')throw new Error('Return to the lobby before changing maps.');
+    selectedMap=map;
+    if(!platforming())setGameMode('platformer');else{engine.setMap(map);resetInput();effects.length=0;trails.length=0;applyModeUI();drawScores();updateUI();}
+  }});
   // Optional browser agent tools invoke the same configuration and match controls as the visible UI.
   if(document.modelContext?.registerTool){
     const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
     const register=tool=>{try{Promise.resolve(document.modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(error=>console.warn('Game tool registration failed:',error));}catch(error){console.warn('Game tool registration failed:',error);}};
     register({name:'read_match_state',title:'Read Ringout match state',description:'Read the game mode, round, player controls, damage, positions, jumps, and scores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:matchSnapshot});
+    if(mapUI){
+      register({name:'list_maps',title:'List Ringout maps',description:'List the ready-made and saved platformer maps.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>mapUI.list()});
+      register({name:'select_map',title:'Select a Ringout map',description:'Choose a ready-made or saved map by its listed ID while in the lobby; switches to Platformer.',inputSchema:{type:'object',properties:{id:{type:'string'}},required:['id'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>mapUI.selectById(input?.id)});
+    }
     register({name:'set_game_mode',title:'Select Ringout game mode',description:'Switch between the original arena and the side-view platformer while in the lobby. Preserves player controls and win target.',inputSchema:{type:'object',properties:{mode:{type:'string',enum:['arena','platformer']}},required:['mode'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>setGameMode(input?.mode)});
     register({name:'configure_match',title:'Configure Ringout lobby',description:'Set the four player slots to keyboard or bot and select the round win target while in the lobby.',inputSchema:{type:'object',properties:{modes:{type:'array',items:{type:'string',enum:['keyboard','bot']},minItems:4,maxItems:4},target:{type:'integer',enum:[1,3,5]}},required:['modes','target'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{if(!input||!Array.isArray(input.modes)||input.modes.some(m=>!['keyboard','bot'].includes(m)))throw new Error('Provide four keyboard or bot slots.');engine.configure(input.modes,input.target);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];$('win-target').value=String(engine.target);configure();return engine.snapshot();}});
     register({name:'start_match',title:'Start Ringout match',description:'Start a new match from the lobby or completed match screen using the selected controls.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{if(!['lobby','matchOver'].includes(engine.phase))throw new Error('A match is already in progress.');start();return engine.snapshot();}});
@@ -223,3 +238,5 @@
 // Purpose: Render and operate the playable game. Upstream: engine.js (simulation) and index.html (interface). Environment: modern browser, standard gamepad API, optional Web Audio and WebMCP. Generated: 2026-09-11 America/New_York. New file: all lines.
 // Updated: 2026-09-14 America/New_York. Changes: lines 5-14 select engines/input state; 20-55 add mode selection, help, and hints; 61-67 lock/reset mode controls; 79-85 map jump and dash; 103-106 add jump/shrink effects; 117 updates status; 124 and 141-161 render side-view platforms; 177 shows jumps; 205 adds touch jump; 211-212 expose mode state and switching. Original ArenaEngine behavior and debug output preserved.
 // Updated: 2026-09-17 America/New_York. Lines 63-70 and 78 validate assigned controllers before starting/replaying or resuming; line 202 restores canvas focus after an in-match sound toggle. Purpose/upstream/environment remain as documented above.
+// Updated: 2026-09-18 America/New_York. Map selection persists across mode/round changes; setup locks editor during matches; modal keyboard input stays separate; map UI callbacks and WebMCP tools use the real engine.
+// Updated: 2026-09-19 America/New_York. Lines 12,46-48 explain drop controls; 90-91 map keyboard/gamepad/touch Down; 158-166 draw motion paths and cyan drop-through markers. Purpose: playable custom platform behavior; upstream: platformer.js and maps.js; environment: browser.

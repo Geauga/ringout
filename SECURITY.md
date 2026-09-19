@@ -2,6 +2,8 @@
 
 All HTML, JavaScript and CSS for the game pass through the server's PIN/session gate. The deployment contains no public static game directory. The only unauthenticated page is the PIN form. Missing PIN configuration or storage errors fail closed.
 
+The custom map library requires a valid PIN session for reads and writes. Mutations also require a matching Origin, bounded JSON, and server-side validation of platform geometry. The shared library is limited atomically to 50 maps per installation, with at most 12 platforms per map. Revision checks reject stale edits and deletes. All authorized players in the same installation share this library; it does not contain separate per-player private collections. User map names are rendered as text.
+
 The eight-digit PIN is generated with Node's cryptographic random generator. The server stores a salted PBKDF2-SHA256 verifier (100,000 iterations), and compares its HMAC tag with Web Crypto verification. The raw PIN stays in the owner's ignored `.private/access-pin.txt`; `.env` contains the verifier. Hosted configuration uses the secret `RINGOUT_PIN_HASH`. Neither belongs in Git or release archives.
 
 Login attempts are counted atomically in persistent storage: eight per address and 100 globally per 15-minute fixed window. A boundary can permit two adjacent windows' budgets. Addresses are hashed with the verifier's tag. Local HTTP requests cannot spoof the trusted peer header because the adapter overwrites it with the socket address. Cloudflare supplies the hosted peer address. If that header is unavailable, callers share the conservative `unknown` bucket.

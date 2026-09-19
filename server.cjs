@@ -24,7 +24,7 @@ async function main() {
       const chunks = []; let size = 0;
       for await (const chunk of req) {
         size += chunk.length;
-        if (size > 1024) { res.writeHead(413); res.end('Form too large'); return; }
+        if (size > 8192) { res.writeHead(413); res.end('Request too large'); return; }
         chunks.push(chunk);
       }
       const headers = new Headers();
@@ -49,3 +49,4 @@ async function main() {
 }
 main().catch(error => { console.error('RINGOUT startup failed:', error); process.exitCode = 1; });
 // Purpose: Protected local preview and portable launch. Upstream: built Worker and generated migrations. Environment: Node 24 on Windows/macOS/Linux. Generated: 2026-09-15 America/New_York. Changes: lines 3-49 replace static serving with authentication, SQLite, bounded requests and loopback access.
+// Updated: 2026-09-18 America/New_York. Line 27 permits bounded map JSON; the Worker retains the smaller PIN form limit.

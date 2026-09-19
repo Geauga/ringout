@@ -22,6 +22,7 @@ export function openDatabase(filename, migrations) {
     return {
       bind: (...values) => prepare(sql, values),
       first: async () => sqlite.prepare(sql).get(...params) || null,
+      all: async () => ({ success: true, results: sqlite.prepare(sql).all(...params) }),
       run: async () => ({ success: true, meta: sqlite.prepare(sql).run(...params) }),
       execute: () => {
         const query = sqlite.prepare(sql);
@@ -37,3 +38,4 @@ export function openDatabase(filename, migrations) {
   } };
 }
 // Purpose: Local SQLite adapter and local migration runner. Upstream: generated drizzle SQL. Environment: Node 24. Generated: 2026-09-15 America/New_York. New file, all lines.
+// Updated: 2026-09-18 America/New_York. Line 27 adds the D1 all() operation for map listing.

@@ -2,6 +2,7 @@
 // Request: Require server-verified PIN access before serving either four-player game mode.
 import { digest, randomToken, validVerifier, verifyPin } from './auth.mjs';
 import { securityStore } from './security-store.mjs';
+import { mapsApi } from './maps-api.mjs';
 const securityHeaders = {
   'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -19,8 +20,8 @@ function tokenFrom(request, url) {
   const value = cookie?.slice(name.length);
   return /^[a-f0-9]{64}$/.test(value || '') ? value : null;
 }
-async function boundedBody(request) {
-  if (Number(request.headers.get('content-length') || 0) > 1024) throw new Error('BODY_LIMIT');
+async function boundedBody(request, limit = 1024) {
+  if (Number(request.headers.get('content-length') || 0) > limit) throw new Error('BODY_LIMIT');
   const reader = request.body?.getReader();
   if (!reader) return '';
   let body = '', count = 0;
@@ -29,7 +30,7 @@ async function boundedBody(request) {
     while (true) {
       const chunk = await reader.read(); if (chunk.done) break;
       count += chunk.value.byteLength;
-      if (count > 1024) { await reader.cancel(); throw new Error('BODY_LIMIT'); }
+      if (count > limit) { await reader.cancel(); throw new Error('BODY_LIMIT'); }
       body += decoder.decode(chunk.value, { stream: true });
     }
     return body + decoder.decode();
@@ -43,6 +44,11 @@ export function createWorker(assets, clock = () => Math.floor(Date.now() / 1000)
       if (url.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return reply('HTTPS is required.', 403);
       const store = securityStore(env.DB), tag = await digest(env.RINGOUT_PIN_HASH), now = clock();
       const token = tokenFrom(request, url), tokenHash = token ? await digest(token) : null;
+      if(url.pathname==='/api/maps'||url.pathname.startsWith('/api/maps/')){
+        if(!tokenHash||!await store.findSession(tokenHash,tag,now))return reply('{"error":"Unlock the game to use saved maps."}',401,{'Content-Type':'application/json'});
+        const result=await mapsApi(request,url,env.DB,now,boundedBody);
+        return reply(result.body,result.status,{'Content-Type':'application/json'});
+      }
       if (request.method === 'POST') {
         if (request.headers.get('origin') !== url.origin) return reply('Request origin rejected.', 403);
         if (url.pathname === '/lock') {
@@ -84,3 +90,4 @@ export function createWorker(assets, clock = () => Math.floor(Date.now() / 1000)
   } };
 }
 // Purpose: Fail-closed access gate with no public game assets. Upstream: auth.mjs, security-store.mjs and game files. Environment: Workers / Node 24. Generated: 2026-09-15 America/New_York. New file, all lines.
+// Updated: 2026-09-18 America/New_York. Lines 5,22-33,47-51 add authenticated map routes and a route-specific request limit; PIN forms retain their 1024-byte limit.

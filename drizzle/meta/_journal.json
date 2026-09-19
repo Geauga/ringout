@@ -8,6 +8,13 @@
       "when": 1789517126882,
       "tag": "0000_new_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789771432531,
+      "tag": "0001_slimy_deathbird",
+      "breakpoints": true
     }
   ]
 }

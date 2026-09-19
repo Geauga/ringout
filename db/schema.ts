@@ -12,3 +12,10 @@ export const sessions = sqliteTable('sessions', {
   verifierTag: text('verifier_tag').notNull(),
 }, t => [index('sessions_expiry').on(t.expiresAt)]);
 // Purpose: Authentication storage. Upstream: user PIN requirement. Environment: Drizzle SQLite / D1. Generated: 2026-09-15 America/New_York. New file, all lines.
+export const customMaps = sqliteTable('custom_maps', {
+  id: text('id').primaryKey(),
+  mapJson: text('map_json').notNull(),
+  revision: integer('revision').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+// Updated: 2026-09-18 America/New_York. Lines 15-20 add a bounded shared map library with optimistic revisions.
