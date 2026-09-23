@@ -133,8 +133,11 @@
     $('remove-platform').addEventListener('click',()=>{if(platformId==='floor')return;draft.platforms=draft.platforms.filter(p=>p.id!==platformId);platformId='floor';render();});
     board.addEventListener('pointerdown',event=>{
       if(busy)return;const button=event.target.closest('[data-platform]');if(!button)return;
-      event.preventDefault();platformId=button.dataset.platform;const p=draft.platforms.find(p=>p.id===platformId),rect=board.getBoundingClientRect();
-      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,startX:p.x,startY:p.y,width:rect.width,height:rect.height};board.setPointerCapture(event.pointerId);board.focus({preventScroll:true});render();
+      event.preventDefault();const nextId=button.dataset.platform;
+      // Commit the focused field to its current platform before selecting another one.
+      board.focus({preventScroll:true});platformId=nextId;
+      const p=draft.platforms.find(p=>p.id===platformId),rect=board.getBoundingClientRect();
+      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,startX:p.x,startY:p.y,width:rect.width,height:rect.height};board.setPointerCapture(event.pointerId);render();
     });
     board.addEventListener('pointermove',event=>{if(!drag||drag.pointer!==event.pointerId||busy)return;const p=draft.platforms.find(p=>p.id===platformId);p.x=drag.startX+(event.clientX-drag.x)*1000/drag.width;p.y=drag.startY+(event.clientY-drag.y)*720/drag.height;boundPlatform(p);render();});
     for(const type of ['pointerup','pointercancel','lostpointercapture'])board.addEventListener(type,()=>{drag=null;});
@@ -163,3 +166,4 @@
 })(window);
 // Purpose: Accessible map authoring and durable library UI. Upstream: maps.js, map API and game lobby callback. Environment: browser with pointer/touch/keyboard support. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-09-19 America/New_York. Line 34 refreshes selection status; lines 50-56 populate motion/drop controls; 67-78 preview paths and behavior; 98-104 edit settings; 123-125 commit numeric edits on blur; 147-152 distinguish unsaved edits from saved maps. Purpose: author and preserve custom platform features; upstream: maps.js validation and map API; environment: browser.
+// Updated: 2026-09-23 America/New_York. Lines 136-140 commit focused fields before changing platform selection and drag origin. Purpose: prevent cross-platform edits; upstream: editor focus/blur handlers; environment: browser.

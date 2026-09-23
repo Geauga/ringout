@@ -9,7 +9,7 @@
     "build": "node scripts/build.mjs",
     "start": "node server.cjs",
     "setup": "node scripts/setup-pin.mjs",
-    "test": "node test-engine.cjs && node test-platformer.cjs && node test-platform-features.cjs && node test-controls.cjs && node test-security.mjs && node test-maps.mjs",
+    "test": "node test-engine.cjs && node test-platformer.cjs && node test-platform-features.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-security.mjs && node test-maps.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "devDependencies": { "drizzle-kit": "0.31.10", "drizzle-orm": "0.45.2" }

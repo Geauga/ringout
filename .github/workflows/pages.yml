@@ -1,42 +1,32 @@
-name: Deploy static content to Pages
+# pages.yml
+# Request: Review and push without publishing a copy that bypasses the server PIN gate.
+name: Validate protected game
 
 on:
   push:
+    branches: ["main"]
+  pull_request:
     branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Strip Server-Side Features for Static Serving
-        run: |
-          # Remove the access.js script which enforces PIN validation via the node server
-          sed -i '/access.js/d' game/index.html
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          path: './game'
-          
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          node-version: '24'
+      - name: Build protected server
+        run: node scripts/build.mjs
+      - name: Test gameplay, editor, access and map storage
+        run: npm test
+# Purpose: Check the server-backed game without exposing raw game assets through static Pages.
+# Upstream: package.json test suite and scripts/build.mjs preserve PIN checks and map APIs.
+# Environment: GitHub Actions / Node 24. Updated: 2026-09-23 America/New_York.
+# Changes: lines 1-31 replace static deployment and PIN stripping with build/test validation.

@@ -10,9 +10,11 @@ Choose a stage under **The map**, or open **Map editor** to build your own Platf
 
 Ledges can move horizontally or vertically, and can optionally allow players to press Down to drop through. The main floor stays fixed. Platformer Down controls are S, Down Arrow, K, and G for Players 1–4; gamepads use the stick/D-pad down and touch uses the thumbstick down. The editor displays motion paths and drop-through markings. Ready-made stages include High Ground, Sky Steps, Split Summit, and Moving Grounds.
 
-The game now requires an eight-digit PIN verified by the server. The downloadable `RINGOUT-secure.zip` needs **Node.js 24 or newer**. Extract it and double-click `start.cmd` on Windows, or run `node scripts/setup-pin.mjs` followed by `node server.cjs` on Windows, macOS or Linux. Visit `http://127.0.0.1:4173`. Your generated PIN is in `.private/access-pin.txt`. The release needs no package installation. Google Fonts is optional; system fonts work without internet.
+The game now requires an eight-digit PIN verified by the server. The downloadable `RINGOUT-secure.zip` includes **Node.js 24 for Windows x64**. Extract it and double-click `start.cmd` on Windows. Source checkouts and macOS/Linux require an installed **Node.js 24 or newer**; run `node scripts/setup-pin.mjs` followed by `node server.cjs`. Visit `http://127.0.0.1:4173`. Your generated PIN is in `.private/access-pin.txt`. The release needs no package installation. Google Fonts is optional; system fonts work without internet.
 
 From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check both game modes and access security. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`.
+
+GitHub Actions builds the protected server and runs the tests on pushes and pull requests. GitHub Pages cannot run the PIN/session server or saved-map API; the workflow does not publish the raw `game/` directory. Use the existing protected Site or the local server to play.
 
 Use **Lock game** to revoke the current session. Sessions last eight hours, and loaded tabs check access every minute. Eight login attempts are allowed per address per 15-minute window; a shared 100-attempt budget also limits distributed guessing. Rate limits and hashed session tokens persist in local SQLite or hosted D1. The server refuses to serve game assets when access configuration is missing.
 

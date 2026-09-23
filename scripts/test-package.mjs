@@ -2,15 +2,16 @@
 // Request: Verify a clean extracted package boots and enforces PIN access over HTTP.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 const directory = path.resolve(process.argv[2] || '.tmp/package-smoke');
-const setup = spawnSync(process.execPath, ['scripts/setup-pin.mjs'], { cwd: directory, encoding: 'utf8' });
+const runtime = process.platform === 'win32' && existsSync(path.join(directory, 'node.exe')) ? path.join(directory, 'node.exe') : process.execPath;
+const setup = spawnSync(runtime, ['scripts/setup-pin.mjs'], { cwd: directory, encoding: 'utf8' });
 process.stdout.write(setup.stdout); process.stderr.write(setup.stderr);
 assert.equal(setup.status, 0);
 const pin = readFileSync(path.join(directory, '.private/access-pin.txt'), 'utf8').match(/PIN: (\d{8})/)[1];
 const origin = 'http://127.0.0.1:4174';
-const child = spawn(process.execPath, ['server.cjs'], { cwd: directory, env: { ...process.env, PORT: '4174' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const child = spawn(runtime, ['server.cjs'], { cwd: directory, env: { ...process.env, PORT: '4174' }, stdio: ['ignore', 'pipe', 'pipe'] });
 child.stderr.on('data', data => process.stderr.write(data));
 try {
   await new Promise((resolve, reject) => {
@@ -35,3 +36,4 @@ try {
 } finally { child.kill(); }
 // Purpose: Release integration check. Upstream: extracted release and server adapter. Environment: Node 24. Generated: 2026-09-16 America/New_York. New file, all lines.
 // Updated: 2026-09-18 America/New_York. Lines 26-29 verify the new map migration and authenticated create/list API in a fresh package.
+// Updated: 2026-09-23 America/New_York. Lines 5,8-9,14 run setup and server with the bundled Windows runtime when present. Purpose: detect broken portable releases; upstream: extracted package; environment: Node on Windows or host Node elsewhere.

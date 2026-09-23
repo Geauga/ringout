@@ -72,6 +72,22 @@ const offset=p.x-g.platforms[1].x;advance(g,.3);close(p.x-g.platforms[1].x,offse
 g.elapsed=20;g.step(1/120);assert(g.platforms[1].w<g.mapDefinition.platforms[1].w);assert(g.platforms[1].motion);
 console.log('PASS: airborne landing, transport after landing, and erosion retain platform motion');
 
+for(const dt of [1/120,1/60,1/30]){
+  g=fresh(stage({axis:'y',distance:-180,period:2}));advance(g,.5);p=stand(g);
+  p.y-=1;p.vy=-100;p.grounded=false;p.support=null;p.jumps=1;
+  g.step(dt);
+  assert.equal(p.support,'ledge','a rising lift catches a slower upward-moving fighter');
+  close(p.y+p.r,g.platforms[1].y,'caught fighter rests on the rising surface');
+  g.step(dt,[{jump:true}]);assert.equal(p.grounded,false,'a faster jump leaves the rising lift');
+  assert(p.vy<0);
+}
+g=fresh();p=stand(g);p.y+=2;p.vy=-300;p.grounded=false;p.support=null;
+g.step(1/120);assert.equal(p.grounded,false,'jumping upward through a stationary platform remains possible');
+// Dash launch happens between the first and second landing passes in a frame.
+p=stand(g,'floor');p.vy=-300;p.grounded=false;p.support=null;p.y+=1;
+g.land(p,p.prevY);assert.equal(p.grounded,false,'landing resolution must not cancel upward knockback');
+console.log('PASS: rising lift catches, faster jump separation, one-way passage and upward knockback');
+
 const durations=[];
 for(let seed=1;seed<=20;seed++){
   let state=seed;const random=()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;};
@@ -85,3 +101,4 @@ console.log('All custom platform feature checks passed.');
 // Purpose: Protect player-visible movement/drop behavior and map compatibility with deterministic simulation checks.
 // Upstream: maps.js validates stages; platformer.js applies motion, landing, drop input and bots.
 // Environment: Node built-ins. Generated: 2026-09-18 America/New_York. New file: all lines.
+// Updated: 2026-09-23 America/New_York. Lines 75-90 cover rising-lift catches at 30/60/120 Hz, jump separation, one-way passage and upward knockback. Purpose: regress relative-motion landings; upstream: platformer.js simulation; environment: Node built-ins.

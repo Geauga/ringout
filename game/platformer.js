@@ -15,7 +15,7 @@
       super.makeRound();
       this.gameMode='platformer';
       this.mapDefinition??=Maps.validate(Maps.presets[0]);
-      this.platforms=this.mapDefinition.platforms.map(p=>({...p,previousX:p.x,previousY:p.y,previousW:p.w,deltaX:0,deltaY:0}));
+      this.platforms=this.mapDefinition.platforms.map(p=>({...p,previousX:p.x,previousY:p.y,previousW:p.w,deltaX:0,deltaY:0,velocityY:0}));
       const spawns=Maps.spawns(this.mapDefinition);
       this.players.forEach((p,i)=>Object.assign(p,{
         ...spawns[i],fx:i<2?1:-1,fy:0,
@@ -68,7 +68,8 @@
       this.platforms=this.mapDefinition.platforms.map(s=>{
         const w=Math.max(0,s.w*(1-erosion/60)),offset=motionOffset(s,this.elapsed),delta=offset-motionOffset(s,this.elapsed-dt),old=previous.get(s.id);
         return{...s,x:s.x+(s.w-w)/2+(s.motion?.axis==='x'?offset:0),y:s.y+(s.motion?.axis==='y'?offset:0),w,
-          previousX:old.x,previousY:old.y,previousW:old.w,deltaX:s.motion?.axis==='x'?delta:0,deltaY:s.motion?.axis==='y'?delta:0};
+          previousX:old.x,previousY:old.y,previousW:old.w,deltaX:s.motion?.axis==='x'?delta:0,deltaY:s.motion?.axis==='y'?delta:0,
+          velocityY:s.motion?.axis==='y'&&dt>0?delta/dt:0};
       });
       if(erosion>0&&!this.shrinking){this.shrinking=true;this.emit('shrink');}
       for(const [key,remaining] of this.hitPairs){if(remaining<=dt)this.hitPairs.delete(key);else this.hitPairs.set(key,remaining-dt);}
@@ -129,10 +130,11 @@
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null)this.scores[this.roundWinner]++;this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
     land(p,previousY) {
-      if(p.vy<0)return;
       let landing=null;
       for(const s of this.platforms){
         if(s.w<=0||s.id===p.dropPlatform)continue;
+        // A rising surface can catch an ascending fighter, but jumps and launches away still clear it.
+        if(p.vy<Math.min(0,s.velocityY))continue;
         const before=previousY+p.r-s.previousY,after=p.y+p.r-s.y;
         if(before>2||after<0||after<before-1e-7)continue;
         const fraction=clamp(-before/(after-before||1),0,1);
@@ -162,3 +164,4 @@
 // Purpose: Side-view platformer simulation. Upstream: engine.js supplies fighter properties, collisions, lobby settings, and round/match transitions. Environment: browser or Node.js. Generated: 2026-09-14 America/New_York. New file: all lines.
 // Updated: 2026-09-18 America/New_York. Lines 6-25 select/retain validated maps and spawns; 33-55 adapt bots to the floor; 70 erodes selected geometry; 112 checks highest landings; 131 includes map name.
 // Updated: 2026-09-19 America/New_York. Lines 8,18-24 initialize motion/drop state; 50-59 add bot descent; 67-101 move platforms, carry riders and process Down; 131-148 land relative to moving surfaces. Purpose: custom moving/drop-through stages; upstream: validated maps.js geometry and original engine; environment: browser/Node.
+// Updated: 2026-09-23 America/New_York. Lines 18,71-72 track vertical surface velocity; 133-138 admit catches by rising platforms while preserving upward separation. Purpose: relative-motion landings; upstream: maps.js paths and engine collisions; environment: browser/Node.
