@@ -11,6 +11,8 @@ foreach ($name in @('server.cjs','start.cmd','README.md','SECURITY.md','.env.exa
   Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination $targetPath
 }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'drizzle') -Destination (Join-Path $stagePath 'drizzle') -Recurse
+Write-Output "Downloading portable Node.js runtime..."
+Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.9.0/win-x64/node.exe" -OutFile (Join-Path $stagePath "node.exe")
 $archivePath = Join-Path $releasePath 'RINGOUT-secure.zip'
 Compress-Archive -Path (Join-Path $stagePath '*') -DestinationPath $archivePath -Force
 Get-FileHash -LiteralPath $archivePath -Algorithm SHA256 | Format-List
