@@ -42,7 +42,7 @@ In Platformer, release and press jump again in midair for a second jump. Landing
 
 Platformer validation: `node test-platformer.cjs` verifies double jumps, no third jump, landing reset, one-way platforms, four independent player inputs, pause, dash knockouts, erosion, scoring/draws, and 20 reproducible first-to-three matches. Original arena checks still run independently.
 
-Execution location: local Windows Git repository. Gameplay executes in the browser and remains shared-device multiplayer. The Node/Workers server controls access and stores custom maps. Author-written game files live in `game/`; `dist/server/index.js` is the generated server bundle. Sites hosting retains owner-only access and adds the same PIN gate. The GitHub repository is [Geauga/ringout](https://github.com/Geauga/ringout) (private). See `SECURITY.md` for deployment and access details.
+Execution location: local Windows Git repository. Gameplay executes in the browser and remains shared-device multiplayer. The Node/Workers server controls access and stores custom maps. Author-written game files live in `game/`; `dist/server/index.js` is the generated server bundle. Sites hosting retains owner-only access and adds the same PIN gate. The GitHub repository is [Geauga/ringout](https://github.com/Geauga/ringout) (public). See `SECURITY.md` for deployment and access details.
 
 ## Community Standards
 

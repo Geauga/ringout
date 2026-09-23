@@ -144,3 +144,11 @@ Files: 历史工作记录.txt (append only). No runtime source changes after the
 Validation: git push succeeded; git ls-remote origin refs/heads/main returned 57f494c177809c04ab190520fa385f8563061091, matching local HEAD. The seven suites, actual-browser editor regression and extracted portable-package checks are recorded above. Remote GitHub Actions results have not been verified; no hosted Site deployment was performed.
 Execution/platform: Local Windows Git repository and existing private GitHub Geauga/ringout main. Generated release ZIP and QA files remain local and ignored.
 GitHub Timeline: 已 push. Implementation commit 57f494c177809c04ab190520fa385f8563061091 is verified on GitHub main. Preparing this completion-log-only commit for a normal push.
+
+## 2026-09-23 18:23 America/New_York
+Prompt: "make public"; user clarified "GitHub repository".
+Actions: Confirmed admin access to Geauga/ringout, checked tracked history for accidentally committed private environment/database files and common credential patterns (109 historical blobs, no matches), then changed repository visibility from private to public through the GitHub API. A separate unauthenticated API request returned HTTP 200, visibility public and private false. Updated README visibility text. Website audience and PIN settings were not changed because the user selected only the GitHub repository.
+Files: README.md (repository visibility); 历史工作记录.txt (append only). No game or server code changed.
+Validation: Authenticated visibility update and anonymous read both succeeded. Local main content was already verified on origin at a71b861cdeb2d54de152fd1bd1acf6684e8fbb45. No runtime tests required for the documentation/account-setting change. Existing Git credentials were used in memory and never printed or written into the repository.
+Execution/platform: Local Windows Git repository; GitHub REST API for https://github.com/Geauga/ringout . Repository is publicly readable; hosting access is a separate setting.
+GitHub Timeline: 已 push for the previously reviewed implementation and work log at a71b861cdeb2d54de152fd1bd1acf6684e8fbb45. Public visibility is applied and verified. README and this new record are 未 commit at the time of this append and will be committed/pushed as documentation of the completed setting change.
