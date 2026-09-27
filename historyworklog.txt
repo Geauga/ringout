@@ -1,0 +1,18 @@
+
+---
+Time: 2026-09-22T21:55:40.227345
+Major Changes:
+- Resolved merge conflicts in README.md for 'ringout' repository.
+- Made the 'ringout' release package completely standalone by bundling the node.exe runtime in scripts/package.ps1 and start.cmd.
+- Added CodeQL GitHub Actions workflow to 'ringout'.
+- Added GitHub Pages automated deployment workflow to 'ringout' with frontend PIN-check bypass.
+
+---
+Time: 2026-09-23T19:21:20.360251
+Major Changes:
+- Cleaned up locally merged codex branches in elo_calculator workspace.
+- Committed outstanding historyworklog changes using 'actacomes' identity.
+- Rewrote historical Git commits in ringout repository to change the author name from 'Daniel' to 'actacomes'.
+- Force-pushed the rewritten ringout history to GitHub.
+
+2026-09-27 16:24:50 - Added ringout files to source control.
