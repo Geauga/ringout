@@ -16,3 +16,4 @@ Major Changes:
 - Force-pushed the rewritten ringout history to GitHub.
 
 2026-09-27 16:24:50 - Added ringout files to source control.
+2026-10-02 18:03:57 - Copied community standards (CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md, SUPPORT.md, templates) and dependabot config from elo_calculator, adjusted project names, and changed dependabot to use npm ecosystem.
