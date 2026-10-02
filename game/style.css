@@ -16,3 +16,27 @@
 /* Updated: 2026-09-18 America/New_York. Lines 16-18 style map selection, responsive workshop, draggable platforms, start markers and validation feedback. */
 .platform-drop-label{display:flex;gap:9px;align-items:center;margin-top:10px;color:#a6e5ec!important}.map-properties .platform-drop-label input{width:17px;height:17px;margin:0;accent-color:#80dce9;flex-shrink:0}.platform-motion-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;background:#111925;border:1px solid #34475d;border-radius:7px}.platform-motion-fields label{display:flex;flex-direction:column;gap:7px}.platform-motion-fields label:last-child{grid-column:1/-1}.editor-motion-path{position:absolute;pointer-events:none;opacity:.6}.editor-motion-path.x{border-top:1px dashed #8dcce3}.editor-motion-path.y{border-left:1px dashed #8dcce3}.editor-motion-end{position:absolute;border:1px dashed #8dcce388;background:#8dcce309;pointer-events:none}.editor-platform.drop-through{border-top-color:#80dce9}.editor-platform.drop-through.selected{box-shadow:0 0 0 2px var(--lime),0 8px 0 #080f1b99}.editor-platform.drop-through span{color:#a6e5ec}@media(max-width:740px){.map-properties .platform-drop-label,.platform-motion-fields{grid-column:1/-1}.platform-motion-fields{grid-template-columns:1fr 1fr 1fr}.platform-motion-fields label:last-child{grid-column:auto}}
 /* Updated: 2026-09-18 America/New_York. Adds responsive per-platform movement/drop-through controls, cyan platform markers and motion path/endpoint previews. Upstream: map-editor.js and index.html; environment: browser CSS. */
+
+.skin-select {
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: -0.5px;
+    color: #edf1f7;
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+}
+.skin-select:focus-visible {
+    outline: 2px solid var(--lime);
+    border-radius: 4px;
+}
+.skin-select option {
+    background: #111925;
+    color: #edf1f7;
+    font-weight: 700;
+}

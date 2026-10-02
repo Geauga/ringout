@@ -2,17 +2,35 @@
 // Request: Four-player arena physics, dash knockback, bots, elimination, shrinking boundaries, and first-to-N matches.
 (function (root) {
   'use strict';
-  const COLORS = ['#ff847a', '#85b5ff', '#f0c875', '#b6a0f5'];
-  const NAMES = ['CORAL', 'BLUE', 'GOLD', 'VIOLET'];
+  const SKINS = [
+    { name: 'CORAL', color: '#ff847a' },
+    { name: 'BLUE', color: '#85b5ff' },
+    { name: 'GOLD', color: '#f0c875' },
+    { name: 'VIOLET', color: '#b6a0f5' },
+    { name: 'CYAN', color: '#80dce9' },
+    { name: 'LIME', color: '#dcf87b' },
+    { name: 'PINK', color: '#ff9deb' },
+    { name: 'MINT', color: '#a5ad9a' },
+    { name: 'WHITE', color: '#ffffff' },
+    { name: 'PEACH', color: '#ffbba6' }
+  ];
+  const COLORS = SKINS.map(s => s.color);
+  const NAMES = SKINS.map(s => s.name);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
-      this.players = COLORS.map((color, id) => {
+      this.players = [0, 1, 2, 3].map(id => {
         const angle = -Math.PI * .75 + id * Math.PI * .5;
-        return { id, name:NAMES[id], color, x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
+        const skin = SKINS[this.skins[id]] || SKINS[id];
+        return { id, name:skin.name, color:skin.color, skinIndex: this.skins[id], x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
       });
+    }
+    setSkin(id, skinIndex) {
+      if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing skins.');
+      this.skins[id] = skinIndex % SKINS.length;
+      this.makeRound();
     }
     configure(modes, target) {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing players.');
@@ -87,9 +105,9 @@
         a.damage=Math.min(250,a.damage+4);b.damage=Math.min(250,b.damage+4);a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],modes:[...this.modes],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
   }
-  if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES};
-  else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES});
+  if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS};
+  else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS});
 })(typeof globalThis!=='undefined'?globalThis:this);
 // Purpose: Deterministic-step game logic independent of rendering. Upstream: original user game request; no previous implementation. Environment: browser or Node.js for simulation validation. Generated: 2026-09-11 America/New_York. New file: all lines.

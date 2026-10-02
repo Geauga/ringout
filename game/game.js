@@ -15,8 +15,8 @@
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pads=()=>Array.from(navigator.getGamepads?.()||[]).filter(p=>p&&p.connected&&p.mapping==='standard'&&p.index<4);
   function setupUI(){
-    $('lineup').innerHTML=PLAYER_NAMES.map((name,i)=>`<div class="player-row" style="--player:${PLAYER_COLORS[i]}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><label class="player-name" for="player-${i}">${name[0]+name.slice(1).toLowerCase()}</label><span class="player-index">P${i+1}</span></div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot · ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`).join('');
-    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);}
+    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${skin.color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
+    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);});}
     $('win-target').addEventListener('change',configure);
     $('mode-arena').addEventListener('click',()=>setGameMode('arena'));
     $('mode-platformer').addEventListener('click',()=>setGameMode('platformer'));
@@ -112,10 +112,10 @@
     if(e.type==='hit'){shake=Math.max(shake,e.power*7);for(let i=0;i<10+e.power*8;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*230;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.2,max:.45,color:'#f0f7c7',size:2+Math.random()*3});}tone(100,.1,'square',.025);}
     if(e.type==='eliminated'){const p=engine.players[e.id];announce(`${p.name} WENT OVER THE EDGE.`,2);tone(170,.4,'triangle');for(let i=0;i<22;i++){const a=Math.random()*Math.PI*2;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120,life:.7,max:.7,color:p.color,size:3});}}
     if(e.type==='shrink'){announce(platforming()?'THE PLATFORMS ARE SHRINKING. KEEP MOVING.':'THE ARENA IS SHRINKING. KEEP MOVING.',3);tone(260,.35,'triangle');}
-    if(e.type==='roundOver'){announce(e.draw?'DOUBLE KNOCKOUT. NO POINTS THIS ROUND.':`${PLAYER_NAMES[e.winner]} TAKES ROUND ${engine.round}!`,2.7);tone(540,.25,'triangle');}
+    if(e.type==='roundOver'){announce(e.draw?'DOUBLE KNOCKOUT. NO POINTS THIS ROUND.':`${engine.players[e.winner].name} TAKES ROUND ${engine.round}!`,2.7);tone(540,.25,'triangle');}
     if(e.type==='matchOver'){
-      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='WE HAVE A WINNER';$('overlay-title').innerHTML=`${PLAYER_NAMES[e.winner]}<br><em>WINS IT.</em>`;$('overlay-description').textContent=`${engine.scores[e.winner]} round wins. The arena has a new champion.`;$('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
-      for(let i=0;i<90;i++)effects.push({x:500,y:240,vx:(Math.random()-.5)*600,vy:-Math.random()*350,life:2+Math.random()*2,max:4,color:PLAYER_COLORS[i%4],size:3+Math.random()*3,gravity:140});
+      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='WE HAVE A WINNER';$('overlay-title').innerHTML=`${engine.players[e.winner].name}<br><em>WINS IT.</em>`;$('overlay-description').textContent=`${engine.scores[e.winner]} round wins. The arena has a new champion.`;$('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
+      for(let i=0;i<90;i++)effects.push({x:500,y:240,vx:(Math.random()-.5)*600,vy:-Math.random()*350,life:2+Math.random()*2,max:4,color:engine.players[i%4].color,size:3+Math.random()*3,gravity:140});
     }
   }}
   function updateUI(){

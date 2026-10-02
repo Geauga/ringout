@@ -16,4 +16,4 @@ Major Changes:
 - Force-pushed the rewritten ringout history to GitHub.
 
 2026-09-27 16:24:50 - Added ringout files to source control.
-2026-10-02 18:03:57 - Copied community standards (CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md, SUPPORT.md, templates) and dependabot config from elo_calculator, adjusted project names, and changed dependabot to use npm ecosystem.
+2026-10-02 18:03:57 - Copied community standards (CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md, SUPPORT.md, templates) and dependabot config from elo_calculator, adjusted project names, and changed dependabot to use npm ecosystem.2026-10-02 18:13:51 - Added character skin selection menu in the lobby. Expanded character skin pool from 4 to 10 choices (added CYAN, LIME, PINK, MINT, WHITE, PEACH). Updated ArenaEngine to support skin selection and modified setupUI in game.js to render skin dropdown menus. Styled with .skin-select in style.css. Updated test environments to support SKINS.

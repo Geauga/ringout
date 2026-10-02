@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const Maps=require('./game/maps.js');
-const {COLORS}=require('./game/engine.js');
+const {COLORS, SKINS}=require('./game/engine.js');
 
 function harness(){
   const elements=new Map();
@@ -26,7 +26,7 @@ function harness(){
   document={getElementById:get,createElement:element,activeElement:null};
   const window={};
   vm.runInNewContext(fs.readFileSync(require.resolve('./game/map-editor.js'),'utf8'),{
-    window,document,RingoutMaps:Maps,PLAYER_COLORS:COLORS,console,
+    window,document,RingoutMaps:Maps,PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS,console,
     fetch:async()=>({ok:true,json:async()=>({maps:[]})}),
   },{filename:'game/map-editor.js'});
   const editor=window.RingoutMapEditor.create({isLobby:()=>true,onSelect:map=>{selected=map;}});

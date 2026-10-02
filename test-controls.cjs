@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { ArenaEngine, COLORS, NAMES } = require('./game/engine.js');
+const { ArenaEngine, COLORS, NAMES , SKINS} = require('./game/engine.js');
 const { PlatformerEngine } = require('./game/platformer.js');
 const Maps = require('./game/maps.js');
 
@@ -66,7 +66,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
     document, window, navigator: { getGamepads: () => connected },
     performance: { now: () => now }, matchMedia: () => ({ matches: false }), devicePixelRatio: 1,
     requestAnimationFrame: callback => { frame = callback; }, AbortController, console,
-    ArenaEngine, PlatformerEngine: ObservedPlatformer, PLAYER_COLORS: COLORS, PLAYER_NAMES: NAMES,
+    ArenaEngine, PlatformerEngine: ObservedPlatformer, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES,
     RingoutMaps: { ...Maps, presets: [map] },
   }, { filename: 'game/game.js' });
   const snapshot = () => tools.get('read_match_state').execute();
