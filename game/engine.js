@@ -3,16 +3,16 @@
 (function (root) {
   'use strict';
   const SKINS = [
-    { name: 'CORAL', color: '#ff847a' },
-    { name: 'BLUE', color: '#85b5ff' },
-    { name: 'GOLD', color: '#f0c875' },
-    { name: 'VIOLET', color: '#b6a0f5' },
-    { name: 'CYAN', color: '#80dce9' },
-    { name: 'LIME', color: '#dcf87b' },
-    { name: 'PINK', color: '#ff9deb' },
-    { name: 'MINT', color: '#a5ad9a' },
-    { name: 'WHITE', color: '#ffffff' },
-    { name: 'PEACH', color: '#ffbba6' }
+    { name: 'CORAL', color: '#ff847a', description: 'A bright, oceanic coral hue.' },
+    { name: 'BLUE', color: '#85b5ff', description: 'A calm and steady sky blue.' },
+    { name: 'GOLD', color: '#f0c875', description: 'A rich and shining golden yellow.' },
+    { name: 'VIOLET', color: '#b6a0f5', description: 'A deep, mystical violet.' },
+    { name: 'CYAN', color: '#80dce9', description: 'A vibrant and energetic cyan.' },
+    { name: 'LIME', color: '#dcf87b', description: 'A fresh and zesty lime green.' },
+    { name: 'PINK', color: '#ff9deb', description: 'A striking and playful pink.' },
+    { name: 'MINT', color: '#a5ad9a', description: 'A cool, refreshing mint green.' },
+    { name: 'WHITE', color: '#ffffff', description: 'A pure and blinding white.' },
+    { name: 'PEACH', color: '#ffbba6', description: 'A soft and warm peach tone.' }
   ];
   const COLORS = SKINS.map(s => s.color);
   const NAMES = SKINS.map(s => s.name);

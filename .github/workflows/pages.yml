@@ -1,6 +1,7 @@
 # pages.yml
 # Request: Review and push without publishing a copy that bypasses the server PIN gate.
 name: Validate protected game
+# Description: This workflow builds and tests the Ringout application, ensuring the PIN-protected server package works correctly without exposing the raw assets.
 
 on:
   push:
