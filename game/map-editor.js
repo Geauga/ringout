@@ -48,6 +48,7 @@
       $('platform-y').min=current.id==='floor'?440:140;
       $('platform-y').max=current.id==='floor'?620:draft.platforms[0].y-60;
       $('platform-drop').checked=!!current.dropThrough;$('platform-drop').disabled=busy||current.id==='floor';
+      $('platform-jump-pad').checked=!!current.jumpPad;
       $('platform-motion').value=current.motion?.axis||'none';$('platform-motion').disabled=busy||current.id==='floor';
       $('platform-motion-fields').hidden=!current.motion;
       $('platform-travel').value=Math.abs(current.motion?.distance??80);$('platform-period').value=current.motion?.period??4;
@@ -71,9 +72,10 @@
           Object.assign(end.style,{left:(p.x+dx)/10+'%',top:(p.y+dy)/7.2+'%',width:p.w/10+'%',height:p.h/7.2+'%'});board.append(end);
         }
         const button=document.createElement('button');button.type='button';button.className='editor-platform'+(p.id===platformId?' selected':'')+(p.dropThrough?' drop-through':'');button.dataset.platform=p.id;
-        button.setAttribute('aria-label',(p.id==='floor'?'Select main floor':`Select ledge ${i}`)+(p.dropThrough?', drop-through':'')+(p.motion?', moving':''));button.setAttribute('aria-pressed',String(p.id===platformId));
+        button.setAttribute('aria-label',(p.id==='floor'?'Select main floor':`Select ledge ${i}`)+(p.dropThrough?', drop-through':'')+(p.motion?', moving':'')+(p.jumpPad?', jump pad':''));button.setAttribute('aria-pressed',String(p.id===platformId));
         Object.assign(button.style,{left:p.x/10+'%',top:p.y/7.2+'%',width:p.w/10+'%',height:p.h/7.2+'%'});
         const label=document.createElement('span');label.textContent=p.id==='floor'?'MAIN FLOOR':`${i}${p.motion?(p.motion.axis==='x'?' ↔':' ↕'):''}${p.dropThrough?' ↓':''}`;button.append(label);board.append(button);
+        if(p.jumpPad){const pad=RingoutMaps.padBounds(p),marker=document.createElement('span');marker.className='editor-jump-pad';marker.textContent='↑';Object.assign(marker.style,{left:pad.x/10+'%',top:(p.y-10)/7.2+'%',width:pad.w/10+'%'});board.append(marker);}
       }
       for(const [i,p] of RingoutMaps.spawns(draft).entries()){
         const spawn=document.createElement('span');spawn.className='editor-spawn';spawn.textContent=`P${i+1}`;spawn.style.left=p.x/10+'%';spawn.style.top=p.y/7.2+'%';spawn.style.setProperty('--player',PLAYER_COLORS[i]);board.append(spawn);
@@ -120,6 +122,7 @@
     $('close-map-editor').addEventListener('click',()=>dialog.close());dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
     $('map-name').addEventListener('input',()=>{draft.name=$('map-name').value;render();});
     $('platform-list').addEventListener('change',()=>{platformId=$('platform-list').value;render();});
+    $('platform-jump-pad').addEventListener('change',()=>{if(busy)return;draft.platforms.find(p=>p.id===platformId).jumpPad=$('platform-jump-pad').checked;render();});
     for(const id of ['platform-x','platform-y','platform-width'])for(const event of ['change','blur'])$(id).addEventListener(event,editCoordinate);
     for(const id of ['platform-drop','platform-motion','platform-travel','platform-direction','platform-period'])$(id).addEventListener('change',editBehavior);
     for(const id of ['platform-travel','platform-period'])$(id).addEventListener('blur',editBehavior);
@@ -167,3 +170,4 @@
 // Purpose: Accessible map authoring and durable library UI. Upstream: maps.js, map API and game lobby callback. Environment: browser with pointer/touch/keyboard support. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-09-19 America/New_York. Line 34 refreshes selection status; lines 50-56 populate motion/drop controls; 67-78 preview paths and behavior; 98-104 edit settings; 123-125 commit numeric edits on blur; 147-152 distinguish unsaved edits from saved maps. Purpose: author and preserve custom platform features; upstream: maps.js validation and map API; environment: browser.
 // Updated: 2026-09-23 America/New_York. Lines 136-140 commit focused fields before changing platform selection and drag origin. Purpose: prevent cross-platform edits; upstream: editor focus/blur handlers; environment: browser.
+// Updated: 2026-10-03 America/New_York. Lines 51,75,78,128 add the independent jump-pad toggle, accessible label and centered marker. Purpose: author saved jump pads; upstream: maps.js validation and map API; environment: browser.

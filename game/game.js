@@ -44,7 +44,7 @@
     $('survive-label').textContent=p?'DOUBLE JUMP TO RECOVER':'HOLD YOUR GROUND';$('survive-caption').textContent=p?'Release W, then tap it again.':'The edge is not your friend.';
     $('touch-jump').hidden=!p;
     canvas.setAttribute('aria-label',p?'Platformer knockout game. A and D to move, W to double jump, S to drop through cyan ledges, Space to dash. Escape to pause.':'Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.');
-    $('help-description').textContent=p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through. Platforms start shrinking after 18 seconds.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.';
+    $('help-description').textContent=p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Gold jump pads launch you upward and refill both air jumps. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through. Platforms start shrinking after 18 seconds.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.';
     const rows=p?['A / D move · W jump · S drop · Space dash','← / → move · ↑ jump · ↓ drop · Enter dash','J / L move · I jump · K drop · U dash','F / H move · T jump · G drop · R dash','Stick / D-pad down to drop · A / ✕ jump · X / □ dash','Thumbstick down to drop · JUMP · DASH']:['W A S D · Space to dash','Arrow keys · Enter to dash','I J K L · U to dash','T F G H · R to dash','Left stick / D-pad · A / ✕ to dash','Left thumbstick · DASH button'];
     $('help-keys').innerHTML=rows.map((row,i)=>`<p><strong>${['Player 1','Player 2','Player 3','Player 4','Gamepad','Touch'][i]}</strong><span>${row}</span></p>`).join('');
   }
@@ -109,6 +109,7 @@
     if(e.type==='go'){announce('GO GET THEM.',1.2);tone(710,.2);}
     if(e.type==='dash'){tone(140,.1,'sawtooth',.015);}
     if(e.type==='jump'){tone(e.double?580:410,.1,'triangle',.018);effects.push({x:e.x-12,y:e.y+23,vx:-40,vy:30,life:.25,max:.25,color:engine.players[e.id].color,size:5},{x:e.x+12,y:e.y+23,vx:40,vy:30,life:.25,max:.25,color:engine.players[e.id].color,size:5});}
+    if(e.type==='jumpPad'){tone(780,.18,'triangle',.03);for(let i=0;i<8;i++)effects.push({x:e.x+(i-3.5)*7,y:e.y,vx:(i-3.5)*15,vy:-90-Math.random()*60,life:.35,max:.35,color:'#ffd36d',size:4});}
     if(e.type==='hit'){shake=Math.max(shake,e.power*7);for(let i=0;i<10+e.power*8;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*230;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.2,max:.45,color:'#f0f7c7',size:2+Math.random()*3});}tone(100,.1,'square',.025);}
     if(e.type==='eliminated'){const p=engine.players[e.id];announce(`${p.name} WENT OVER THE EDGE.`,2);tone(170,.4,'triangle');for(let i=0;i<22;i++){const a=Math.random()*Math.PI*2;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120,life:.7,max:.7,color:p.color,size:3});}}
     if(e.type==='shrink'){announce(platforming()?'THE PLATFORMS ARE SHRINKING. KEEP MOVING.':'THE ARENA IS SHRINKING. KEEP MOVING.',3);tone(260,.35,'triangle');}
@@ -163,6 +164,7 @@
       ctx.save();ctx.beginPath();ctx.rect(s.x,s.y+5,s.w,s.h-5);ctx.clip();ctx.strokeStyle='#0f192766';ctx.lineWidth=7;
       for(let x=s.x-20;x<s.x+s.w;x+=27){ctx.beginPath();ctx.moveTo(x,s.y+5);ctx.lineTo(x+16,s.y+s.h);ctx.stroke();}ctx.restore();
       ctx.fillStyle='#dcf87b';ctx.fillRect(s.x,s.y-2,5,9);ctx.fillRect(s.x+s.w-5,s.y-2,5,9);
+      if(s.jumpPad){const pad=RingoutMaps.padBounds(s);ctx.fillStyle='#ffd36d';ctx.fillRect(pad.x,s.y-5,pad.w,10);ctx.strokeStyle='#513e18';ctx.lineWidth=2;for(let x=pad.x+12;x<pad.x+pad.w;x+=18){ctx.beginPath();ctx.moveTo(x-4,s.y+1);ctx.lineTo(x,s.y-3);ctx.lineTo(x+4,s.y+1);ctx.stroke();}}
       if((s.motion||s.dropThrough)&&s.w>35){ctx.fillStyle=s.dropThrough?'#80dce9':'#c4e3f2';ctx.textAlign='center';ctx.font='700 12px Arial,sans-serif';ctx.fillText(`${s.motion?(s.motion.axis==='x'?'↔ ':'↕ '):''}${s.dropThrough?'↓':''}`,s.x+s.w/2,s.y-9);}
     }
     ctx.fillStyle='#667994';ctx.font='600 11px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText('DOUBLE JUMP  ·  DASH  ·  STAY ON',500,115);
@@ -240,3 +242,4 @@
 // Updated: 2026-09-17 America/New_York. Lines 63-70 and 78 validate assigned controllers before starting/replaying or resuming; line 202 restores canvas focus after an in-match sound toggle. Purpose/upstream/environment remain as documented above.
 // Updated: 2026-09-18 America/New_York. Map selection persists across mode/round changes; setup locks editor during matches; modal keyboard input stays separate; map UI callbacks and WebMCP tools use the real engine.
 // Updated: 2026-09-19 America/New_York. Lines 12,46-48 explain drop controls; 90-91 map keyboard/gamepad/touch Down; 158-166 draw motion paths and cyan drop-through markers. Purpose: playable custom platform behavior; upstream: platformer.js and maps.js; environment: browser.
+// Updated: 2026-10-03 America/New_York. Lines 47,112,167 add jump-pad instructions, gold launch particles/sound and pad-strip rendering. Purpose: identify and explain launches; upstream: platformer.js events and maps.js pad bounds; environment: browser Canvas/Web Audio.

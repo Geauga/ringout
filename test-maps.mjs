@@ -29,7 +29,7 @@ let invalid=clone(Maps.presets[0]);invalid.platforms[0].w=200;assert.throws(()=>
 invalid=clone(Maps.presets[0]);invalid.platforms[1].x=-100;assert.throws(()=>Maps.validate(invalid),/workspace/);
 invalid=clone(Maps.presets[0]);invalid.platforms[1].id='floor';assert.throws(()=>Maps.validate(invalid),/unique/);
 invalid={name:'Unreachable',platforms:[clone(Maps.presets[0].platforms[0]),{id:'unreachable',x:40,y:140,w:90}]};assert.throws(()=>Maps.validate(invalid),/Connect/);
-const basic={name:'Single floor',platforms:[{id:'floor',x:40,y:620,w:420}]};
+const basic={name:'Single floor',platforms:[{id:'floor',x:40,y:620,w:420,jumpPad:true}]};
 assert.equal(Maps.spawns(Maps.validate(basic)).length,4);
 const erosion=new Platformer.PlatformerEngine();erosion.setMap(basic);erosion.configure(['keyboard','keyboard','keyboard','keyboard'],3);erosion.start();step(erosion,22);assert(erosion.platforms[0].w<420);erosion.lobby();assert.equal(erosion.platforms[0].w,420);
 console.log(`PASS: map constraints, four safe spawns, independent geometry, erosion/reset and ${Maps.presets.length*5} preset bot matches`);
@@ -45,12 +45,15 @@ assert.equal((await send('/api/maps',{auth:false})).status,401);
 assert.equal((await send('/api/maps',{body:{map:basic},auth:false})).status,401);
 assert.equal((await send('/api/maps',{body:{map:basic},originHeader:'https://other.example'})).status,403);
 assert.equal((await send('/api/maps',{body:{map:invalid}})).status,400);
+assert.equal((await send('/api/maps',{body:{map:{...basic,platforms:[{...basic.platforms[0],jumpPad:'yes'}]}}})).status,400,'server rejects invalid jump-pad field');
 assert.equal((await send('/api/maps',{body:{map:basic,padding:'x'.repeat(9000)}})).status,413);
 const created=await send('/api/maps',{body:{map:{...basic,name:'<b>Text-only title</b>'}}});assert.equal(created.status,201);
 const saved=(await created.json()).map;assert.equal(saved.revision,1);
+assert.equal(saved.platforms[0].jumpPad,true,'saved jump-pad setting is retained');
 assert.equal((await (await send('/api/maps')).json()).maps.length,1);
 DB.close();DB=openDatabase(filename,migrations);
 assert.equal((await (await send('/api/maps')).json()).maps[0].id,saved.id,'map persists after restart');
+assert.equal((await (await send('/api/maps')).json()).maps[0].platforms[0].jumpPad,true,'jump pads persist after restart');
 const updated=await send('/api/maps/'+saved.id,{body:{map:{...basic,name:'Edited map'},revision:1}});assert.equal(updated.status,200);assert.equal((await updated.json()).map.revision,2);
 assert.equal((await send('/api/maps/'+saved.id,{body:{map:basic,revision:1}})).status,409,'stale edit rejected');
 assert.equal((await send('/api/maps/'+saved.id,{body:{action:'delete',revision:1}})).status,409,'stale delete rejected');
@@ -65,3 +68,4 @@ assert.equal((await bundle.fetch(new Request(origin+'/map-editor.js'),env())).st
 const bundleText=await readFile(new URL('dist/server/index.js',import.meta.url),'utf8');assert.ok(bundleText.includes('Map workshop'));
 DB.close();console.log('PASS: map API authentication, CSRF, bounded input, create/list/update/delete, stale-edit protection, persistence, atomic 50-map cap and server bundle');
 // Purpose: Real simulation and SQLite-backed custom map checks. Upstream: map definitions, engine, Worker and migrations. Environment: Node 24. Generated: 2026-09-18 America/New_York. New file, all lines.
+// Updated: 2026-10-03 America/New_York. Lines 32,46,52,56 verify jump-pad API validation, save and restart persistence. Purpose: protect stored feature data; upstream: maps API and shared schema; environment: Node 24/SQLite.

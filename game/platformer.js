@@ -146,6 +146,13 @@
         const {s,fraction}=landing;
         if(p.carriedBy!==s.id)p.x+=s.deltaX*(1-fraction);
         p.carriedBy=s.id;p.y=s.y-p.r;p.vy=0;p.grounded=true;p.support=s.id;p.jumps=0;p.coyote=.09;
+        if(s.jumpPad){
+          const pad=Maps.padBounds(s);
+          if(p.x>=pad.x-p.r*.35&&p.x<=pad.x+pad.w+p.r*.35){
+            p.vy=-760;p.grounded=false;p.support=null;p.carriedBy=null;p.coyote=0;p.jumpBuffer=0;p.dashTime=0;
+            this.emit('jumpPad',{id:p.id,platform:s.id,x:p.x,y:s.y});
+          }
+        }
       }
     }
     collide(a,b) {
@@ -165,3 +172,4 @@
 // Updated: 2026-09-18 America/New_York. Lines 6-25 select/retain validated maps and spawns; 33-55 adapt bots to the floor; 70 erodes selected geometry; 112 checks highest landings; 131 includes map name.
 // Updated: 2026-09-19 America/New_York. Lines 8,18-24 initialize motion/drop state; 50-59 add bot descent; 67-101 move platforms, carry riders and process Down; 131-148 land relative to moving surfaces. Purpose: custom moving/drop-through stages; upstream: validated maps.js geometry and original engine; environment: browser/Node.
 // Updated: 2026-09-23 America/New_York. Lines 18,71-72 track vertical surface velocity; 133-138 admit catches by rising platforms while preserving upward separation. Purpose: relative-motion landings; upstream: maps.js paths and engine collisions; environment: browser/Node.
+// Updated: 2026-10-03 America/New_York. Lines 148-155 launch from centered pad strips, restore both air jumps and emit feedback. Purpose: automatic jump pads; upstream: maps.js pad bounds and existing landing resolution; environment: browser/Node.

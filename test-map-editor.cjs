@@ -66,7 +66,14 @@ function harness(){
     assert.deepEqual(actual,expected,`${field} blur must preserve the next ledge's direction and settings`);
   }
   console.log('PASS: pending motion edits preserve the next ledge and its opposite travel direction');
+  const pads=harness();await pads.editor.list();pads.click('edit-map');
+  pads.get('platform-jump-pad').checked=true;pads.get('platform-jump-pad').dispatch('change');pads.pointAt('left');
+  assert.equal(pads.get('platform-jump-pad').checked,false,'each platform has an independent setting');
+  pads.get('platform-jump-pad').checked=true;pads.get('platform-jump-pad').dispatch('change');pads.click('play-map');
+  assert.equal(pads.read().platforms[0].jumpPad,true);assert.equal(pads.read().platforms[1].jumpPad,true);assert.equal(pads.read().platforms[2].jumpPad,false);
+  console.log('PASS: independent floor/ledge jump-pad toggles survive draft play');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 // Purpose: Regress data loss when a board pointer action synchronously blurs an editor field.
 // Upstream: map-editor.js authors validated maps; maps.js supplies presets and geometry rules.
 // Environment: Node built-ins with a synchronous focus/blur DOM harness. Generated: 2026-09-23 America/New_York. New file: all lines.
+// Updated: 2026-10-03 America/New_York. Lines 68-73 cover independent floor/ledge pad toggles and draft use. Purpose: editor feature regression; upstream: map-editor.js and maps.js; environment: Node VM DOM harness.

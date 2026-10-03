@@ -40,3 +40,5 @@
     color: #edf1f7;
     font-weight: 700;
 }
+.editor-jump-pad{position:absolute;height:10px;background:#ffd36d;color:#513e18;font:900 15px/10px Arial,sans-serif;text-align:center;border-radius:2px;pointer-events:none;box-shadow:0 0 12px #ffd36d35}
+/* Updated: 2026-10-03 America/New_York. Jump-pad preview strip. Purpose: identify launch zones; upstream: map-editor.js pad bounds; environment: browser. */
