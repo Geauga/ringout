@@ -23,10 +23,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Enable Corepack and install dependencies
+        run: corepack enable pnpm && pnpm install
       - name: Build protected server
         run: node scripts/build.mjs
       - name: Test gameplay, editor, access and map storage
-        run: npm test
+        run: pnpm test
 # Purpose: Check the server-backed game without exposing raw game assets through static Pages.
 # Upstream: package.json test suite and scripts/build.mjs preserve PIN checks and map APIs.
 # Environment: GitHub Actions / Node 24. Updated: 2026-09-23 America/New_York.
