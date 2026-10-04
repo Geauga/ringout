@@ -12,6 +12,7 @@
   <script defer src="engine.js"></script>
   <script defer src="maps.js"></script>
   <script defer src="platformer.js"></script>
+  <script defer src="replay.js"></script>
   <script defer src="map-editor.js"></script>
   <script defer src="game.js"></script>
 </head>
@@ -26,7 +27,7 @@
       <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 1–4 PLAYERS</div><h1>Small arena. <span>Big grudges.</span></h1></div><div class="mode-switch" role="group" aria-label="Game mode"><button id="mode-arena" aria-pressed="true">Arena</button><button id="mode-platformer" aria-pressed="false">Platformer</button></div></div>
       <div class="game-layout">
         <section class="arena-panel" aria-label="Game arena">
-          <div class="arena-toolbar"><div class="arena-name"><span class="arena-icon">◎</span><span id="stage-name">THE DROP ZONE</span><span class="tag" id="stage-number">01</span></div><button id="pause" class="text-button" disabled>Pause <kbd>Esc</kbd></button></div>
+          <div class="arena-toolbar"><div class="arena-name"><span class="arena-icon">◎</span><span id="stage-name">THE DROP ZONE</span><span class="tag" id="stage-number">01</span></div><div class="arena-actions"><button id="watch-replay" class="text-button" disabled>Watch replay</button><button id="pause" class="text-button" disabled>Pause <kbd>Esc</kbd></button></div></div>
           <div class="scoreboard" id="scoreboard" aria-label="Round scores"></div>
           <div class="stage" id="stage">
             <canvas id="arena" width="1000" height="720" tabindex="0" aria-label="Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.">Your browser needs Canvas support to play Ringout.</canvas>
@@ -36,7 +37,13 @@
             <div id="announcement" class="announcement" role="status" aria-live="polite"></div>
             <div class="touch-controls" id="touch-controls" aria-label="Touch controls"><div class="touch-pad" id="touch-pad"><span id="touch-stick"></span></div><div class="touch-actions"><button id="touch-jump" aria-label="Jump" hidden>JUMP</button><button id="touch-dash" aria-label="Dash">DASH</button></div></div>
           </div>
-          <div class="arena-bottom"><span><i class="live-dot"></i><span id="match-status">READY WHEN YOU ARE</span></span><span>STAY ON. SEND THEM OFF.</span></div>
+          <section id="replay-controls" class="replay-controls" aria-label="Match replay controls" hidden>
+            <div class="replay-heading"><strong>↺ MATCH REPLAY</strong><button id="exit-replay" class="text-button">Exit replay ×</button></div>
+            <label class="sr-only" for="replay-seek">Replay position in seconds</label><input id="replay-seek" type="range" min="0" max="1" step="0.01" value="0">
+            <div class="replay-buttons"><button id="replay-play" class="secondary-button">Pause replay</button><button id="replay-restart" class="text-button">Restart</button><span id="replay-time">00:00 / 00:00</span><label for="replay-round">Round <select id="replay-round"></select></label><label for="replay-speed">Speed <select id="replay-speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
+            <p id="replay-note">Latest match is kept until you reload. Replays are silent.</p>
+          </section>
+          <div class="arena-bottom"><span><i class="live-dot"></i><span id="match-status">READY WHEN YOU ARE</span></span><span id="replay-availability">PLAY A MATCH TO RECORD A REPLAY.</span></div>
         </section>
         <aside class="setup-panel">
           <section class="map-picker" aria-label="Map selection"><div class="section-heading"><h2>The map</h2><span>↗</span></div><p id="map-mode-note" class="section-description">Choose a map to switch to Platformer</p><label class="sr-only" for="map-select">Select map</label><select id="map-select"></select><div class="map-picker-actions"><button id="edit-map" class="text-button">Map editor</button><button id="new-map" class="text-button">+ New map</button><button id="map-reload" class="text-button" aria-label="Reload saved maps">↻</button></div><p id="map-status" class="map-status" role="status"></p></section>
@@ -63,3 +70,4 @@
 
 <!-- Updated: 2026-09-18 America/New_York. Map workshop adds drop-through, movement direction, travel distance and cycle controls; dialog stays inside body. Upstream: map-editor.js behavior fields. Final line ranges recorded in the work log. -->
 <!-- Updated: 2026-10-03 America/New_York. Line 57 adds the jump-pad checkbox and editor instructions. Purpose: custom pad authoring; upstream: map-editor.js; environment: browser. -->
+<!-- Updated: 2026-10-04 America/New_York. Replay script, Watch replay action and playback panel added at lines 15,30,40-46. Purpose: review the latest match; upstream: replay.js/game.js; environment: browser. -->

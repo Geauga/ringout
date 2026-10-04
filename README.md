@@ -12,15 +12,13 @@ Ledges can move horizontally or vertically, and can optionally allow players to 
 
 Gold **jump pads** launch any fighter upward automatically when they step or land on the marked center strip and refill both air jumps. In **Map editor**, select any platform and check **Add a jump pad**, then save or play the draft. Pads can ride moving ledges; Down still drops through a ledge when enabled. **Spring Yard** is ready to play with pads already placed.
 
-The game now requires an eight-digit PIN verified by the server. The downloadable `RINGOUT-secure.zip` includes **Node.js 24 for Windows x64**. Extract it and double-click `start.cmd` on Windows. Source checkouts and macOS/Linux require an installed **Node.js 24 or newer**; run `node scripts/setup-pin.mjs` followed by `node server.cjs`. Visit `http://127.0.0.1:4173`. Your generated PIN is in `.private/access-pin.txt`. The release needs no package installation. Google Fonts is optional; system fonts work without internet.
+The downloadable `RINGOUT-secure.zip` includes **Node.js 24 for Windows x64**. Extract it and double-click `start.cmd` on Windows. Source checkouts and macOS/Linux require an installed **Node.js 24 or newer**; run `node scripts/build.mjs` followed by `node server.cjs`. Visit `http://127.0.0.1:4173`. The release needs no package installation or PIN setup. Google Fonts is optional; system fonts work without internet. The archive retains its existing filename for compatibility.
 
-From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check both game modes and access security. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`.
+From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check both game modes, replays, input, the editor and map storage. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`.
 
-GitHub Actions builds the protected server and runs the tests on pushes and pull requests. GitHub Pages cannot run the PIN/session server or saved-map API; the workflow does not publish the raw `game/` directory. Use the existing protected Site or the local server to play.
+GitHub Actions builds the server and runs the tests on pushes and pull requests. GitHub Pages cannot run the saved-map API; the workflow does not publish the raw `game/` directory. Use the existing Site or the local server to play.
 
-Use **Lock game** to revoke the current session. Sessions last eight hours, and loaded tabs check access every minute. Eight login attempts are allowed per address per 15-minute window; a shared 100-attempt budget also limits distributed guessing. Rate limits and hashed session tokens persist in local SQLite or hosted D1. The server refuses to serve game assets when access configuration is missing.
-
-To change the local PIN, stop the server, run `node scripts/setup-pin.mjs --rotate`, read the new PIN file, and restart. For the hosted Site, also update its secret `RINGOUT_PIN_HASH` with the verifier from `.env`, then redeploy. Rotation invalidates previous sessions. Never commit `.env`, `.private/`, or `.data/`. The downloadable package generates a separate PIN for each installation; it does not contain the hosted PIN.
+The local and hosted game no longer use a game PIN. The hosted Site retains its existing owner-only sharing. Local play binds to loopback. Map changes retain same-origin validation, bounded input and revision checks. Never commit `.env`, `.private/`, or `.data/`.
 
 1: Player 1 uses W/A/S/D and Space to dash.
 
@@ -36,6 +34,8 @@ Dash follows movement direction; when standing still, it follows the last moveme
 
 Escape pauses or resumes. Losing focus or disconnecting an assigned gamepad pauses automatically. Back to lobby lets you change the lineup. Run it back starts a fresh match with the same settings. Sound is off initially and can be enabled in the header.
 
+**Watch replay** becomes available after a match ends or you return to the lobby. It records both modes, custom stages, moving ledges, jump pads and selected skins. Pause/play, scrub the timeline, jump to a round, restart, or choose **0.25×, 0.5×, 1× or 2×** speed. **Exit replay** restores the lobby or completed match without changing scores or settings. Escape toggles playback; losing focus pauses it. Replays are silent and kept in this tab until reload; the latest recording replaces the previous one when finished. Matches longer than ten minutes retain their final ten minutes. Recording excludes pauses and playback cannot control fighters.
+
 Validation: `node test-engine.cjs` checks independent controls, dash knockouts, pause, shrinking, draws, scoring, controller validation, and 20 reproducible first-to-three bot matches.
 
 Platformer controls: Player 1 uses A/D to move, W to jump, and Space to dash. Player 2 uses left/right arrows, Up to jump, and Enter to dash. Player 3 uses J/L, I to jump, and U to dash. Player 4 uses F/H, T to jump, and R to dash. On a standard controller, use the left stick or D-pad to move, A / cross to jump, and X / square to dash. Touch provides separate JUMP and DASH buttons for Player 1.
@@ -44,7 +44,7 @@ In Platformer, release and press jump again in midair for a second jump. Landing
 
 Platformer validation: `node test-platformer.cjs` verifies double jumps, no third jump, landing reset, one-way platforms, four independent player inputs, pause, dash knockouts, erosion, scoring/draws, and 20 reproducible first-to-three matches. Original arena checks still run independently.
 
-Execution location: local Windows Git repository. Gameplay executes in the browser and remains shared-device multiplayer. The Node/Workers server controls access and stores custom maps. Author-written game files live in `game/`; `dist/server/index.js` is the generated server bundle. Sites hosting retains owner-only access and adds the same PIN gate. The GitHub repository is [Geauga/ringout](https://github.com/Geauga/ringout) (public). See `SECURITY.md` for deployment and access details.
+Execution location: local Windows Git repository. Gameplay and replay recording execute in the browser and remain shared-device multiplayer. The Node/Workers server serves the game and stores custom maps. Author-written game files live in `game/`; `dist/server/index.js` is the generated server bundle. Sites hosting retains owner-only access. The GitHub repository is [Geauga/ringout](https://github.com/Geauga/ringout) (public). See `SECURITY.md` for deployment and access details.
 
 ## Community Standards
 

@@ -1,10 +1,14 @@
 // game.js
-// Request: Add a selectable platformer version while preserving four-player arena gameplay, local controls, sound, and match UI.
+// Request: Add latest-match replays while preserving four-player arena/platformer gameplay, controls, skins and custom maps.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
   let engine=new ArenaEngine();
   let selectedMap=RingoutMaps.presets[0];
+  const recorder=new RingoutReplay.Recorder();
+  let replayPlayer=null,replayView=null,replayOverlayHidden=false;
+  const view=()=>replayView||engine;
+  const viewPlatforming=()=>replayPlayer?replayView.gameMode==='platformer':platforming();
   const platforming=()=>engine instanceof PlatformerEngine;
   const keys=new Set(),effects=[],trails=[];
   const bindings=[['KeyW','KeyS','KeyA','KeyD','Space'],['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'],['KeyI','KeyK','KeyJ','KeyL','KeyU'],['KeyT','KeyG','KeyF','KeyH','KeyR']];
@@ -16,7 +20,7 @@
   const pads=()=>Array.from(navigator.getGamepads?.()||[]).filter(p=>p&&p.connected&&p.mapping==='standard'&&p.index<4);
   function setupUI(){
     $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${skin.color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; height: 1.2em;">${skin.description}</div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
-    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;});}
+    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;hudSignature='';updateUI();});}
     $('win-target').addEventListener('change',configure);
     $('mode-arena').addEventListener('click',()=>setGameMode('arena'));
     $('mode-platformer').addEventListener('click',()=>setGameMode('platformer'));
@@ -26,11 +30,12 @@
     if(engine.phase!=='lobby')throw new Error('Return to the lobby before changing game mode.');
     if(!['arena','platformer'].includes(mode))throw new Error('Choose arena or platformer.');
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
+    engine.skins.forEach((skin,id)=>next.setSkin(id,skin));
     if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
   }
-  function matchSnapshot(){return {...engine.snapshot(),gameMode:platforming()?'platformer':'arena'};}
+  function matchSnapshot(){return {...engine.snapshot(),gameMode:platforming()?'platformer':'arena',replay:{available:!!recorder.latest,watching:!!replayPlayer,time:replayPlayer?.time||0,duration:recorder.latest?.duration||0,playing:!!replayPlayer?.playing,speed:replayPlayer?.speed||1}};}
   function applyModeUI(){
     const p=platforming();document.body.classList.toggle('platformer-mode',p);
     $('mode-arena').setAttribute('aria-pressed',String(!p));$('mode-platformer').setAttribute('aria-pressed',String(p));
@@ -58,9 +63,10 @@
     drawScores();
   }
   function drawScores(){
+    const engine=view();
     $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span></div>`).join('');
   }
-  function lockSetup(locked){for(let i=0;i<4;i++)$(`player-${i}`).disabled=locked;$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;mapUI?.setLocked(locked);}
+  function lockSetup(locked){for(let i=0;i<4;i++){$(`player-${i}`).disabled=locked;$(`skin-${i}`).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -68,13 +74,15 @@
     return true;
   }
   function start(){
+    if(replayPlayer)return;
     if(mapUI?.isOpen())return;
     if(engine.phase==='paused'){resume();return;}
     if(!controllersReady())return;
-    resetInput();engine.start();effects.length=0;trails.length=0;lockSetup(true);$('overlay').hidden=true;$('announcement').textContent='';document.body.classList.add('playing');canvas.focus({preventScroll:true});initAudio();updateUI();
+    resetInput();engine.start();recorder.begin(engine,platforming()?'platformer':'arena');effects.length=0;trails.length=0;lockSetup(true);$('overlay').hidden=true;$('announcement').textContent='';document.body.classList.add('playing');canvas.focus({preventScroll:true});initAudio();updateUI();
   }
-  function lobby(){engine.lobby();resetInput();effects.length=0;trails.length=0;lockSetup(false);document.body.classList.remove('playing');$('overlay').hidden=false;applyModeUI();$('start').innerHTML='LET’S RUMBLE <span aria-hidden="true">↗</span>';$('pause').innerHTML='Pause <kbd>Esc</kbd>';$('countdown').textContent='';$('announcement').textContent='';configure();updateUI();}
+  function lobby(){if(replayPlayer)return;recorder.finish();engine.lobby();resetInput();effects.length=0;trails.length=0;lockSetup(false);document.body.classList.remove('playing');$('overlay').hidden=false;applyModeUI();$('start').innerHTML='LET’S RUMBLE <span aria-hidden="true">↗</span>';$('pause').innerHTML='Pause <kbd>Esc</kbd>';$('countdown').textContent='';$('announcement').textContent='';configure();updateUI();}
   function pause(message='Take a breather. Your rivals can wait.'){
+    if(replayPlayer){replayPlayer.playing=false;return;}
     if(!engine.pause())return;resetInput();document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='TIME OUT';$('overlay-title').innerHTML='MATCH<br><em>PAUSED.</em>';$('overlay-description').textContent=message;$('start').innerHTML='KEEP PLAYING <span aria-hidden="true">↗</span>';$('pause').innerHTML='Resume <kbd>Esc</kbd>';$('countdown').textContent='';updateUI();
   }
   function resume(){
@@ -120,17 +128,48 @@
     }
   }}
   function updateUI(){
+    const engine=view(),p=viewPlatforming();
     const signature=engine.players.map(p=>p.damage+':'+p.alive).join('|')+engine.scores.join('|')+engine.target;if(signature!==hudSignature){drawScores();hudSignature=signature;}
     $('round-label').textContent=engine.phase==='lobby'?'WARM-UP':`ROUND ${String(engine.round).padStart(2,'0')}`;
     const sec=Math.floor(engine.elapsed);$('timer').textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
-    $('arena-note').textContent=engine.shrinking?(platforming()?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(platforming()?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):`SHRINKS IN ${Math.max(0,18-sec)} SEC`;
+    $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):`SHRINKS IN ${Math.max(0,18-sec)} SEC`;
     $('arena-note').style.color=engine.shrinking?'#dcf87b':'';
     $('countdown').textContent=engine.phase==='countdown'?Math.max(1,Math.ceil(engine.clock)):'';
     $('match-status').textContent=({lobby:'READY WHEN YOU ARE',countdown:'GET READY',playing:`${engine.players.filter(p=>p.alive).length} FIGHTERS REMAIN`,paused:'MATCH PAUSED',roundOver:'ROUND COMPLETE',matchOver:'BRAGGING RIGHTS SECURED'})[engine.phase];
+    $('watch-replay').disabled=!!replayPlayer||!recorder.latest||!['lobby','matchOver'].includes(engine.phase);
+    $('replay-availability').textContent=recorder.recording?'RECORDING MATCH…':recorder.latest?'LATEST REPLAY READY · UNTIL RELOAD':'PLAY A MATCH TO RECORD A REPLAY.';
+    if(replayPlayer){
+      $('match-status').textContent=replayPlayer.playing?'REPLAY PLAYING':replayPlayer.time>=recorder.latest.duration?'REPLAY COMPLETE':'REPLAY PAUSED';
+      $('replay-seek').value=String(replayPlayer.time);$('replay-seek').setAttribute('aria-valuetext',`${formatReplayTime(replayPlayer.time)} of ${formatReplayTime(recorder.latest.duration)}`);
+      $('replay-time').textContent=`${formatReplayTime(replayPlayer.time)} / ${formatReplayTime(recorder.latest.duration)}`;
+      $('replay-play').textContent=replayPlayer.playing?'Pause replay':replayPlayer.time>=recorder.latest.duration?'Play again':'Play replay';
+      $('replay-round').value=String(engine.round);
+    }
   }
+  function formatReplayTime(seconds){const s=Math.floor(seconds);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+  function clearReplayEffects(){effects.length=0;trails.length=0;shake=0;$('announcement').textContent='';}
+  function watchReplay(){
+    if(!recorder.latest||replayPlayer||!['lobby','matchOver'].includes(engine.phase)||mapUI?.isOpen())return;
+    replayPlayer=new RingoutReplay.Player(recorder.latest);replayView=replayPlayer.frame();replayOverlayHidden=$('overlay').hidden;
+    resetInput();clearReplayEffects();accumulator=0;hudSignature='';lockSetup(true);document.body.classList.remove('playing');document.body.classList.add('replaying');
+    $('overlay').hidden=true;$('replay-controls').hidden=false;$('replay-seek').max=String(Math.ceil(recorder.latest.duration*100)/100);$('replay-speed').value='1';
+    $('replay-round').innerHTML=recorder.latest.rounds.map(r=>`<option value="${r.round}">${r.round}</option>`).join('');
+    $('replay-note').textContent=`${recorder.latest.trimmed?'Last 10 minutes. ':''}${recorder.latest.completed?'Completed match.':'Stopped match.'} Kept until you reload. Replays are silent.`;
+    document.body.classList.toggle('platformer-mode',viewPlatforming());$('stage-name').textContent=viewPlatforming()?recorder.latest.mapDefinition.name.toUpperCase():'THE DROP ZONE';$('stage-number').textContent='↺';
+    canvas.setAttribute('aria-label','Recorded match playback. Use the replay controls below to pause, seek or change speed. Escape pauses or plays the replay.');
+    updateUI();$('replay-play').focus({preventScroll:true});
+  }
+  function exitReplay(){
+    if(!replayPlayer)return;replayPlayer=null;replayView=null;resetInput();clearReplayEffects();accumulator=0;hudSignature='';document.body.classList.remove('replaying');
+    $('replay-controls').hidden=true;lockSetup(engine.phase!=='lobby');if(engine.phase==='matchOver')$('pause').disabled=true;
+    if(engine.phase==='lobby')applyModeUI();else{document.body.classList.toggle('platformer-mode',platforming());$('stage-name').textContent=platforming()?engine.mapDefinition.name.toUpperCase():'THE DROP ZONE';$('stage-number').textContent=platforming()?'02':'01';canvas.setAttribute('aria-label','Completed knockout match. Start a new match or return to the lobby.');}
+    $('overlay').hidden=replayOverlayHidden;updateUI();$('watch-replay').focus({preventScroll:true});
+  }
+  function toggleReplay(){if(!replayPlayer)return;if(replayPlayer.time>=recorder.latest.duration){replayPlayer.seek(0);clearReplayEffects();}replayPlayer.playing=!replayPlayer.playing;}
   function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,Math.max(0,r),0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
   function drawPlatform(){
-    if(platforming()){drawSideStage();return;}
+    const engine=view();
+    if(viewPlatforming()){drawSideStage();return;}
     const r=engine.radius,cx=500,cy=354;
     ctx.save();ctx.strokeStyle='#8ba0c109';ctx.lineWidth=1;
     for(let x=0;x<=1000;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,720);ctx.stroke();}
@@ -148,6 +187,7 @@
     ctx.fillStyle='#637187';ctx.textAlign='center';ctx.font='600 10px "DM Sans", sans-serif';ctx.letterSpacing='3px';ctx.fillText('MIND THE GAP',500,696);ctx.letterSpacing='0px';ctx.restore();
   }
   function drawSideStage(){
+    const engine=view();
     ctx.save();
     const background=ctx.createLinearGradient(0,0,0,720);background.addColorStop(0,'#1d2637');background.addColorStop(1,'#121820');ctx.fillStyle=background;ctx.fillRect(0,0,1000,720);
     ctx.strokeStyle='#9db7e50c';ctx.lineWidth=1;
@@ -173,6 +213,7 @@
     ctx.fillStyle='#bc817f';ctx.font='600 10px "DM Sans",sans-serif';ctx.fillText('FALL OUT. YOU’RE OUT.',500,696);ctx.restore();
   }
   function drawPlayer(p){
+    const engine=view();
     if(!p.alive&&p.fall>.7)return;
     const lobby=engine.phase==='lobby',bob=lobby?Math.sin(visualTime*2+p.id*1.8)*4:0;let x=p.x,y=p.y+bob;
     if(!p.alive){x+=p.vx*p.fall*.16;y+=p.vy*p.fall*.16+p.fall*p.fall*100;}
@@ -186,19 +227,21 @@
     ctx.strokeStyle='#253143';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(ex,ey+3,4,.2,Math.PI-.2);ctx.stroke();
     ctx.textAlign='center';ctx.font='700 11px "DM Sans", sans-serif';ctx.fillStyle='#edf1f7';ctx.shadowColor='#122030';ctx.shadowBlur=5;ctx.fillText(`P${p.id+1}`,0,-38);ctx.shadowBlur=0;
     if(engine.phase==='playing'&&p.alive){ctx.font='700 10px "DM Sans",sans-serif';ctx.fillStyle=p.color;ctx.fillText(`${p.damage}%`,0,43);}
-    if(platforming()&&p.alive){for(let j=0;j<2;j++)circle(-5+j*10,52,2.5,j<2-p.jumps?p.color:'#59606d');}
+    if(viewPlatforming()&&p.alive){for(let j=0;j<2;j++)circle(-5+j*10,52,2.5,j<2-p.jumps?p.color:'#59606d');}
     ctx.restore();
   }
   function render(dt){
+    const engine=view();
     const rect=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     ctx.setTransform(canvas.width/1000,0,0,canvas.height/720,0,0);ctx.clearRect(0,0,1000,720);ctx.fillStyle='#1a202b';ctx.fillRect(0,0,1000,720);
     ctx.save();if(!reducedMotion&&shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake=Math.max(0,shake-dt*35);drawPlatform();
     for(let i=trails.length-1;i>=0;i--){const t=trails[i];t.life-=dt;if(t.life<=0){trails.splice(i,1);continue;}ctx.globalAlpha=t.life/.2*.32;circle(t.x,t.y,19*t.life/.2,t.color);}ctx.globalAlpha=1;
-    for(const p of engine.players){if(p.dashTime>0&&p.alive&&engine.phase==='playing'&&!reducedMotion)trails.push({x:p.x,y:p.y,life:.2,color:p.color});drawPlayer(p);}
+    for(const p of engine.players){if(p.dashTime>0&&p.alive&&engine.phase==='playing'&&!reducedMotion&&replayPlayer?.playing!==false)trails.push({x:p.x,y:p.y,life:.2,color:p.color});drawPlayer(p);}
     for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life-=dt;if(e.life<=0){effects.splice(i,1);continue;}e.x+=e.vx*dt;e.y+=e.vy*dt;e.vy+=(e.gravity||0)*dt;ctx.globalAlpha=Math.min(1,e.life/e.max);ctx.fillStyle=e.color;ctx.fillRect(e.x,e.y,e.size,e.size);}ctx.globalAlpha=1;ctx.restore();
   }
-  function frame(now){const dt=Math.min((now-last)/1000,.05);last=now;visualTime+=dt;accumulator+=dt;const inputs=readInputs();while(accumulator>=1/120){engine.step(1/120,inputs);accumulator-=1/120;}handleEvents();updateUI();if(visualTime>announcementUntil)$('announcement').textContent='';if(now-lastPadCheck>750){updatePads();lastPadCheck=now;}render(dt);requestAnimationFrame(frame);}
+  function frame(now){const dt=Math.min((now-last)/1000,.05);last=now;visualTime+=dt;if(replayPlayer){replayPlayer.advance(dt);replayView=replayPlayer.frame();}else{accumulator+=dt;const inputs=readInputs();while(accumulator>=1/120){engine.step(1/120,inputs);recorder.tick(1/120,engine);accumulator-=1/120;}handleEvents();}updateUI();if(visualTime>announcementUntil)$('announcement').textContent='';if(now-lastPadCheck>750){updatePads();lastPadCheck=now;}render(replayPlayer?.playing===false?0:dt);requestAnimationFrame(frame);}
   document.addEventListener('keydown',e=>{
+    if(replayPlayer){if(e.code==='Escape'&&!$('help-dialog').open){e.preventDefault();toggleReplay();}return;}
     if(mapUI?.isOpen())return;
     const formTarget=/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName);if(e.code==='Escape'&&!$('help-dialog').open){e.preventDefault();if(engine.phase==='paused')resume();else pause();return;}
     if(!formTarget&&!$('help-dialog').open&&allKeys.has(e.code)){if(engine.phase!=='lobby'){e.preventDefault();keys.add(e.code);}}
@@ -207,8 +250,13 @@
   window.addEventListener('blur',()=>{pause('The game paused while you were away.');resetInput();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){pause('The game paused while you were away.');resetInput();}});
   $('start').addEventListener('click',start);$('pause').addEventListener('click',()=>engine.phase==='paused'?resume():pause());$('reset').addEventListener('click',lobby);
+  $('watch-replay').addEventListener('click',watchReplay);$('exit-replay').addEventListener('click',exitReplay);$('replay-play').addEventListener('click',toggleReplay);
+  $('replay-restart').addEventListener('click',()=>{if(replayPlayer){replayPlayer.seek(0);replayPlayer.playing=true;clearReplayEffects();}});
+  $('replay-seek').addEventListener('input',()=>{if(replayPlayer){replayPlayer.seek(Number($('replay-seek').value));clearReplayEffects();}});
+  $('replay-speed').addEventListener('change',()=>{if(replayPlayer)replayPlayer.setSpeed(Number($('replay-speed').value));});
+  $('replay-round').addEventListener('change',()=>{const round=recorder.latest?.rounds.find(r=>r.round===Number($('replay-round').value));if(replayPlayer&&round){replayPlayer.seek(round.time);clearReplayEffects();}});
   $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;initAudio();$('sound').textContent=soundEnabled?'Sound on':'Sound off';$('sound').setAttribute('aria-label',soundEnabled?'Mute sound':'Enable sound');$('sound').setAttribute('aria-pressed',String(soundEnabled));if(soundEnabled)tone(500,.12);if(['countdown','playing','roundOver'].includes(engine.phase))canvas.focus({preventScroll:true});});
-  $('help').addEventListener('click',()=>{helpWasRunning=['playing','countdown','roundOver'].includes(engine.phase);if(helpWasRunning)pause();$('help-dialog').showModal();});
+  $('help').addEventListener('click',()=>{helpWasRunning=!replayPlayer&&['playing','countdown','roundOver'].includes(engine.phase);if(helpWasRunning||replayPlayer)pause();$('help-dialog').showModal();});
   $('close-help').addEventListener('click',()=>$('help-dialog').close());$('got-it').addEventListener('click',()=>$('help-dialog').close());$('help-dialog').addEventListener('close',()=>{if(helpWasRunning)resume();helpWasRunning=false;});
   const touchPad=$('touch-pad');let touchPointer=null;
   function moveTouch(e){if(e.pointerId!==touchPointer)return;const rect=touchPad.getBoundingClientRect();let x=(e.clientX-rect.left-rect.width/2)/(rect.width*.36),y=(e.clientY-rect.top-rect.height/2)/(rect.height*.36);const d=Math.hypot(x,y);if(d>1){x/=d;y/=d;}touch.x=x;touch.y=y;$('touch-stick').style.transform=`translate(${x*rect.width*.28}px,${y*rect.height*.28}px)`;}
@@ -217,7 +265,7 @@
   $('touch-dash').addEventListener('pointerdown',e=>{e.preventDefault();$('touch-dash').setPointerCapture(e.pointerId);touch.dash=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])$('touch-dash').addEventListener(event,()=>{touch.dash=false;});
   $('touch-jump').addEventListener('pointerdown',e=>{e.preventDefault();$('touch-jump').setPointerCapture(e.pointerId);touch.jump=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])$('touch-jump').addEventListener(event,()=>{touch.jump=false;});
   window.addEventListener('gamepadconnected',updatePads);window.addEventListener('gamepaddisconnected',updatePads);
-  const mapUI=window.RingoutMapEditor?.create({isLobby:()=>engine.phase==='lobby',onSelect:map=>{
+  const mapUI=window.RingoutMapEditor?.create({isLobby:()=>!replayPlayer&&engine.phase==='lobby',onSelect:map=>{
     if(engine.phase!=='lobby')throw new Error('Return to the lobby before changing maps.');
     selectedMap=map;
     if(!platforming())setGameMode('platformer');else{engine.setMap(map);resetInput();effects.length=0;trails.length=0;applyModeUI();drawScores();updateUI();}
@@ -225,7 +273,7 @@
   // Optional browser agent tools invoke the same configuration and match controls as the visible UI.
   if(document.modelContext?.registerTool){
     const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
-    const register=tool=>{try{Promise.resolve(document.modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(error=>console.warn('Game tool registration failed:',error));}catch(error){console.warn('Game tool registration failed:',error);}};
+    const register=tool=>{const execute=tool.execute;if(!tool.annotations.readOnlyHint)tool.execute=input=>{if(replayPlayer)throw new Error('Exit the replay before changing the match.');return execute(input);};try{Promise.resolve(document.modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(error=>console.warn('Game tool registration failed:',error));}catch(error){console.warn('Game tool registration failed:',error);}};
     register({name:'read_match_state',title:'Read Ringout match state',description:'Read the game mode, round, player controls, damage, positions, jumps, and scores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:matchSnapshot});
     if(mapUI){
       register({name:'list_maps',title:'List Ringout maps',description:'List the ready-made and saved platformer maps.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>mapUI.list()});
@@ -235,7 +283,7 @@
     register({name:'configure_match',title:'Configure Ringout lobby',description:'Set the four player slots to keyboard or bot and select the round win target while in the lobby.',inputSchema:{type:'object',properties:{modes:{type:'array',items:{type:'string',enum:['keyboard','bot']},minItems:4,maxItems:4},target:{type:'integer',enum:[1,3,5]}},required:['modes','target'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{if(!input||!Array.isArray(input.modes)||input.modes.some(m=>!['keyboard','bot'].includes(m)))throw new Error('Provide four keyboard or bot slots.');engine.configure(input.modes,input.target);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];$('win-target').value=String(engine.target);configure();return engine.snapshot();}});
     register({name:'start_match',title:'Start Ringout match',description:'Start a new match from the lobby or completed match screen using the selected controls.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{if(!['lobby','matchOver'].includes(engine.phase))throw new Error('A match is already in progress.');start();return engine.snapshot();}});
   }
-  setupUI();updatePads();requestAnimationFrame(frame);
+  setupUI();updatePads();updateUI();requestAnimationFrame(frame);
 })();
 // Purpose: Render and operate the playable game. Upstream: engine.js (simulation) and index.html (interface). Environment: modern browser, standard gamepad API, optional Web Audio and WebMCP. Generated: 2026-09-11 America/New_York. New file: all lines.
 // Updated: 2026-09-14 America/New_York. Changes: lines 5-14 select engines/input state; 20-55 add mode selection, help, and hints; 61-67 lock/reset mode controls; 79-85 map jump and dash; 103-106 add jump/shrink effects; 117 updates status; 124 and 141-161 render side-view platforms; 177 shows jumps; 205 adds touch jump; 211-212 expose mode state and switching. Original ArenaEngine behavior and debug output preserved.
@@ -243,3 +291,4 @@
 // Updated: 2026-09-18 America/New_York. Map selection persists across mode/round changes; setup locks editor during matches; modal keyboard input stays separate; map UI callbacks and WebMCP tools use the real engine.
 // Updated: 2026-09-19 America/New_York. Lines 12,46-48 explain drop controls; 90-91 map keyboard/gamepad/touch Down; 158-166 draw motion paths and cyan drop-through markers. Purpose: playable custom platform behavior; upstream: platformer.js and maps.js; environment: browser.
 // Updated: 2026-10-03 America/New_York. Lines 47,112,167 add jump-pad instructions, gold launch particles/sound and pad-strip rendering. Purpose: identify and explain launches; upstream: platformer.js events and maps.js pad bounds; environment: browser Canvas/Web Audio.
+// Updated: 2026-10-04 America/New_York. Changed lines 8-11,23,33,38,65-89,130-286: recording at match start/fixed steps, independent display snapshots, replay controls/input locks, immediate skin HUD refresh and skin retention across modes. Purpose: latest-match replay without changing simulation; upstream: replay.js plus existing engines/UI; environment: browser.

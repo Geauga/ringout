@@ -1,15 +1,17 @@
 // test-controls.cjs
-// Request: Regress sound-button keyboard focus and disconnected-controller match starts in both game modes.
+// Request: Regress local input, skin selection and isolated replay controls in both game modes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { ArenaEngine, COLORS, NAMES , SKINS} = require('./game/engine.js');
 const { PlatformerEngine } = require('./game/platformer.js');
 const Maps = require('./game/maps.js');
+const RingoutReplay = require('./game/replay.js');
 
 function browserHarness(mode, map = Maps.presets[0]) {
   const elements = new Map(), tools = new Map();
-  let document, connected = [], frame, now = 0, platformEngine;
+  let document, connected = [], frame, now = 0, platformEngine, arenaEngine;
+  class ObservedArena extends ArenaEngine { constructor(...args) { super(...args); arenaEngine = this; } }
   class ObservedPlatformer extends PlatformerEngine { constructor(...args) { super(...args); platformEngine = this; } }
   function eventTarget(target = {}) {
     const listeners = new Map();
@@ -26,10 +28,10 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id === 'win-target';
+    const select = id.startsWith('player-') || id.startsWith('skin-') || id === 'win-target';
     return eventTarget({
       id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : 'BUTTON',
-      value: id === 'win-target' ? '3' : 'keyboard', options: [], style: {}, hidden: false, open: false,
+      value: id === 'win-target' ? '3' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
       setAttribute() {},
@@ -66,7 +68,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
     document, window, navigator: { getGamepads: () => connected },
     performance: { now: () => now }, matchMedia: () => ({ matches: false }), devicePixelRatio: 1,
     requestAnimationFrame: callback => { frame = callback; }, AbortController, console,
-    ArenaEngine, PlatformerEngine: ObservedPlatformer, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES,
+    ArenaEngine: ObservedArena, PlatformerEngine: ObservedPlatformer, RingoutReplay, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES,
     RingoutMaps: { ...Maps, presets: [map] },
   }, { filename: 'game/game.js' });
   const snapshot = () => tools.get('read_match_state').execute();
@@ -78,7 +80,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
   const setPads = list => { connected = list; window.dispatch(list.length ? 'gamepadconnected' : 'gamepaddisconnected'); };
   const configure = modes => { modes.forEach((value, i) => { get(`player-${i}`).value = value; }); get('player-0').dispatch('change'); };
   if (mode === 'platformer') click('mode-platformer');
-  return { document, get, snapshot, click, tick, key, setPads, configure, get engine() { return platformEngine; } };
+  return { document, get, snapshot, click, tick, key, setPads, configure, tools, get engine() { return mode==='platformer'?platformEngine:arenaEngine; } };
 }
 
 for (const mode of ['arena', 'platformer']) {
@@ -124,6 +126,33 @@ for (const mode of ['arena', 'platformer']) {
   assert.equal(ui.snapshot().phase, 'countdown', 'changing the unavailable controller assignment allows starting');
   console.log(`PASS: ${mode} controller disconnect, blocked start/resume, reconnection and reassignment`);
 }
+for (const mode of ['arena', 'platformer']) {
+  const ui = browserHarness(mode), skins = [6, 7, 8, 9];
+  const modes = ['keyboard', 'bot', 'keyboard', 'bot'];
+  ui.configure(modes); ui.get('win-target').value = '5'; ui.get('win-target').dispatch('change');
+  skins.forEach((skin, i) => {
+    ui.get(`skin-${i}`).value = String(skin); ui.get(`skin-${i}`).dispatch('change');
+    assert.match(ui.get('scoreboard').innerHTML, new RegExp(SKINS[skin].name), 'skin changes immediately refresh score names');
+    assert(ui.get('scoreboard').innerHTML.includes(SKINS[skin].color), 'score color follows the selected skin');
+  });
+  for (const nextMode of ['platformer', 'arena', mode]) {
+    ui.click('mode-' + nextMode);
+    assert.deepEqual(Array.from(ui.snapshot().skins), skins, 'mode switches preserve all four skins');
+    assert.deepEqual(Array.from(ui.snapshot().players, p => p.name), skins.map(skin => SKINS[skin].name));
+    assert.deepEqual(Array.from(ui.snapshot().modes), modes); assert.equal(ui.snapshot().target, 5);
+  }
+  ui.click('start');
+  for (const phase of ['countdown', 'playing', 'paused']) {
+    if (phase === 'playing') ui.tick(3.1);
+    if (phase === 'paused') ui.click('pause');
+    assert.equal(ui.snapshot().phase, phase);
+    for (let i = 0; i < 4; i++) assert.equal(ui.get(`skin-${i}`).disabled, true, 'skins stay locked throughout a match');
+  }
+  ui.click('reset');
+  for (let i = 0; i < 4; i++) assert.equal(ui.get(`skin-${i}`).disabled, false, 'returning to the lobby unlocks skins');
+  assert.deepEqual(Array.from(ui.snapshot().skins), skins);
+  console.log(`PASS: ${mode} skins refresh scores, survive mode changes and lock during matches`);
+}
 const dropMap={name:'Input test ledge',platforms:[{id:'floor',x:100,y:600,w:800},{id:'ledge',x:200,y:420,w:600,dropThrough:true}]};
 const standOnLedge=ui=>ui.engine.players.forEach((p,i)=>Object.assign(p,{x:270+i*150,y:399,vx:0,vy:0,grounded:true,support:'ledge'}));
 const keyboard=browserHarness('platformer',dropMap);
@@ -145,7 +174,25 @@ for(const useStick of [false,true]){
 }
 console.log('PASS: all four Down keys, controller stick/D-pad and touch stick trigger selected-ledge drop-through');
 console.log('All browser-control regression checks passed using simulated DOM and gamepad events.');
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode,Maps.presets[4]);ui.configure(['keyboard','keyboard','keyboard','keyboard']);
+  assert.equal(ui.get('watch-replay').disabled,true);ui.get('win-target').value='1';ui.get('win-target').dispatch('change');ui.click('start');ui.tick(3.2);
+  ui.engine.players.slice(1).forEach(p=>p.alive=false);ui.tick(3);
+  assert.equal(ui.snapshot().phase,'matchOver');assert.equal(ui.snapshot().replay.available,true);const live=JSON.stringify(ui.engine.snapshot());
+  ui.click('watch-replay');assert.equal(ui.snapshot().replay.watching,true);assert.equal(ui.get('overlay').hidden,true);assert.equal(ui.get('skin-0').disabled,true);
+  assert.throws(()=>ui.tools.get('configure_match').execute({modes:['bot','bot','bot','bot'],target:1}),/Exit the replay/);
+  ui.tick(.5);ui.click('replay-play');const paused=ui.snapshot().replay.time;ui.tick(1);assert.equal(ui.snapshot().replay.time,paused);
+  ui.get('replay-seek').value='1';ui.get('replay-seek').dispatch('input');assert.equal(ui.snapshot().replay.time,1);
+  ui.get('replay-speed').value='2';ui.get('replay-speed').dispatch('change');ui.click('replay-play');ui.tick(.25);assert(Math.abs(ui.snapshot().replay.time-1.5)<.01);
+  ui.key('keydown','KeyD');ui.tick(.1);ui.key('keyup','KeyD');assert.equal(JSON.stringify(ui.engine.snapshot()),live,'replay input/playback preserves final simulation');
+  ui.get('replay-seek').value=ui.get('replay-seek').max;ui.get('replay-seek').dispatch('input');assert.equal(ui.snapshot().replay.time,ui.snapshot().replay.duration,'slider maximum reaches the exact final frame');assert.equal(ui.snapshot().replay.playing,false);
+  ui.document.dispatch('visibilitychange');ui.click('replay-restart');assert.equal(ui.snapshot().replay.time,0);ui.click('exit-replay');assert.equal(ui.snapshot().phase,'matchOver');assert.equal(ui.get('overlay').hidden,false);
+  ui.click('reset');ui.click('watch-replay');ui.click('exit-replay');assert.equal(ui.snapshot().phase,'lobby');assert.equal(ui.get('mode-arena').disabled,false);
+  ui.click('start');ui.tick(.5);ui.click('reset');assert.equal(ui.snapshot().replay.available,true,'stopped matches can be replayed');
+  console.log(`PASS: ${mode} completed/stopped replay, seek/speed/pause/exit and input isolation`);
+}
 // Purpose: Exercise real game.js event handlers and engines without changing production code or requiring browser hardware.
 // Upstream: game/game.js connects browser input to game/engine.js and game/platformer.js simulations.
 // Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
 // Updated: 2026-09-19 America/New_York. Lines 8-13,36-37,69-70,82 observe the real platformer engine and supply custom maps; 127-146 verify Down input for four keyboard layouts, controller stick/D-pad and touch. Purpose/upstream/environment remain as documented above.
+// Updated: 2026-10-04 America/New_York. Changed lines 9-16,75-90,176-193: observe both engines and exercise real replay handlers, setup/input isolation, slider end, seek/speed, completion and lobby restoration. Purpose: integrated replay regressions; upstream: game.js/replay.js; environment: Node VM with simulated DOM.
