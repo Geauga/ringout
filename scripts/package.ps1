@@ -1,5 +1,5 @@
 # package.ps1
-# Request: Build a downloadable PIN-protected game package without local secrets.
+# Request: Build a downloadable game package without local configuration or saved maps.
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $stagePath = Join-Path $projectRoot ('.tmp/package-' + [Guid]::NewGuid().ToString('N'))
@@ -25,3 +25,4 @@ Get-FileHash -LiteralPath $archivePath -Algorithm SHA256 | Format-List
 Write-Output ('Package ready: ' + $archivePath)
 # Purpose: Whitelisted release packaging. Upstream: tested server build and migrations. Environment: PowerShell 7 / Windows. Generated: 2026-09-15 America/New_York. New file, all lines.
 # Updated: 2026-09-23 America/New_York. Lines 15-21 pin Node 24.21.0, check its official SHA256 and load SQLite before archiving. Purpose: ship a compatible portable runtime; upstream: protected build and nodejs.org release; environment: Windows x64 / PowerShell.
+# Updated: 2026-10-04 America/New_York. Line 2 describes the current package without PIN setup. Purpose: portable release; upstream: server build and migrations; environment: Windows x64 / PowerShell. Archive name retained for existing download compatibility.

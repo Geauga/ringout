@@ -1,5 +1,5 @@
 // game.js
-// Request: Add a selectable platformer version while preserving four-player arena gameplay, local controls, sound, and match UI.
+// Request: Preserve selected skins across game modes, refresh scores and lock match setup while retaining multiplayer gameplay.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -16,7 +16,7 @@
   const pads=()=>Array.from(navigator.getGamepads?.()||[]).filter(p=>p&&p.connected&&p.mapping==='standard'&&p.index<4);
   function setupUI(){
     $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${skin.color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; height: 1.2em;">${skin.description}</div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
-    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;});}
+    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;drawScores();});}
     $('win-target').addEventListener('change',configure);
     $('mode-arena').addEventListener('click',()=>setGameMode('arena'));
     $('mode-platformer').addEventListener('click',()=>setGameMode('platformer'));
@@ -26,6 +26,7 @@
     if(engine.phase!=='lobby')throw new Error('Return to the lobby before changing game mode.');
     if(!['arena','platformer'].includes(mode))throw new Error('Choose arena or platformer.');
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
+    engine.skins.forEach((skin,i)=>next.setSkin(i,skin));
     if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
@@ -60,7 +61,7 @@
   function drawScores(){
     $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span></div>`).join('');
   }
-  function lockSetup(locked){for(let i=0;i<4;i++)$(`player-${i}`).disabled=locked;$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;mapUI?.setLocked(locked);}
+  function lockSetup(locked){for(let i=0;i<4;i++){$(`player-${i}`).disabled=locked;$(`skin-${i}`).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked;$('pause').disabled=!locked;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -243,3 +244,4 @@
 // Updated: 2026-09-18 America/New_York. Map selection persists across mode/round changes; setup locks editor during matches; modal keyboard input stays separate; map UI callbacks and WebMCP tools use the real engine.
 // Updated: 2026-09-19 America/New_York. Lines 12,46-48 explain drop controls; 90-91 map keyboard/gamepad/touch Down; 158-166 draw motion paths and cyan drop-through markers. Purpose: playable custom platform behavior; upstream: platformer.js and maps.js; environment: browser.
 // Updated: 2026-10-03 America/New_York. Lines 47,112,167 add jump-pad instructions, gold launch particles/sound and pad-strip rendering. Purpose: identify and explain launches; upstream: platformer.js events and maps.js pad bounds; environment: browser Canvas/Web Audio.
+// Updated: 2026-10-04 America/New_York. Lines 2,19,29,64 refresh skin score names/colors, copy four selections into the next engine and lock skin controls during matches. Purpose: consistent lobby/match skins; upstream: ArenaEngine/PlatformerEngine setSkin and fighter definitions; environment: browser DOM/Canvas.

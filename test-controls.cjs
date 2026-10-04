@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Regress sound-button keyboard focus and disconnected-controller match starts in both game modes.
+// Request: Regress keyboard focus, controller availability and skin selection/locking in both game modes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -26,10 +26,10 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id === 'win-target';
+    const select = id.startsWith('player-') || id.startsWith('skin-') || id === 'win-target';
     return eventTarget({
       id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : 'BUTTON',
-      value: id === 'win-target' ? '3' : 'keyboard', options: [], style: {}, hidden: false, open: false,
+      value: id === 'win-target' ? '3' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
       setAttribute() {},
@@ -124,6 +124,33 @@ for (const mode of ['arena', 'platformer']) {
   assert.equal(ui.snapshot().phase, 'countdown', 'changing the unavailable controller assignment allows starting');
   console.log(`PASS: ${mode} controller disconnect, blocked start/resume, reconnection and reassignment`);
 }
+for (const mode of ['arena', 'platformer']) {
+  const ui = browserHarness(mode), skins = [6, 7, 8, 9];
+  const modes = ['keyboard', 'bot', 'keyboard', 'bot'];
+  ui.configure(modes); ui.get('win-target').value = '5'; ui.get('win-target').dispatch('change');
+  skins.forEach((skin, i) => {
+    ui.get(`skin-${i}`).value = String(skin); ui.get(`skin-${i}`).dispatch('change');
+    assert.match(ui.get('scoreboard').innerHTML, new RegExp(SKINS[skin].name), 'skin changes immediately refresh score names');
+    assert(ui.get('scoreboard').innerHTML.includes(SKINS[skin].color), 'score color follows the selected skin');
+  });
+  for (const nextMode of ['platformer', 'arena', mode]) {
+    ui.click('mode-' + nextMode);
+    assert.deepEqual(Array.from(ui.snapshot().skins), skins, 'mode switches preserve all four skins');
+    assert.deepEqual(Array.from(ui.snapshot().players, p => p.name), skins.map(skin => SKINS[skin].name));
+    assert.deepEqual(Array.from(ui.snapshot().modes), modes); assert.equal(ui.snapshot().target, 5);
+  }
+  ui.click('start');
+  for (const phase of ['countdown', 'playing', 'paused']) {
+    if (phase === 'playing') ui.tick(3.1);
+    if (phase === 'paused') ui.click('pause');
+    assert.equal(ui.snapshot().phase, phase);
+    for (let i = 0; i < 4; i++) assert.equal(ui.get(`skin-${i}`).disabled, true, 'skins stay locked throughout a match');
+  }
+  ui.click('reset');
+  for (let i = 0; i < 4; i++) assert.equal(ui.get(`skin-${i}`).disabled, false, 'returning to the lobby unlocks skins');
+  assert.deepEqual(Array.from(ui.snapshot().skins), skins);
+  console.log(`PASS: ${mode} skins refresh scores, survive mode changes and lock during matches`);
+}
 const dropMap={name:'Input test ledge',platforms:[{id:'floor',x:100,y:600,w:800},{id:'ledge',x:200,y:420,w:600,dropThrough:true}]};
 const standOnLedge=ui=>ui.engine.players.forEach((p,i)=>Object.assign(p,{x:270+i*150,y:399,vx:0,vy:0,grounded:true,support:'ledge'}));
 const keyboard=browserHarness('platformer',dropMap);
@@ -149,3 +176,4 @@ console.log('All browser-control regression checks passed using simulated DOM an
 // Upstream: game/game.js connects browser input to game/engine.js and game/platformer.js simulations.
 // Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
 // Updated: 2026-09-19 America/New_York. Lines 8-13,36-37,69-70,82 observe the real platformer engine and supply custom maps; 127-146 verify Down input for four keyboard layouts, controller stick/D-pad and touch. Purpose/upstream/environment remain as documented above.
+// Updated: 2026-10-04 America/New_York. Lines 2,29,32 model skin selects/styles; 127-153 verify immediate scores, mode preservation and countdown/play/pause/lobby locking. Purpose: skin/control regressions; upstream: real game.js handlers and both engines; environment: Node 24 VM DOM harness.

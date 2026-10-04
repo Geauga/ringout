@@ -1,5 +1,5 @@
 ﻿// server.cjs
-// Request: Serve the local four-player game.
+// Request: Fix localhost map saves, bound uploads before buffering, and report startup failures.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,12 +21,23 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     try {
       if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host)) { res.writeHead(403); res.end('Host rejected'); return; }
-      
+      if (!req.url.startsWith('/')) { res.writeHead(400); res.end('Request target rejected'); return; }
+      const rejectBody = () => {
+        res.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' });
+        res.end(JSON.stringify({ error: 'Map is too large.' }));
+        req.resume();
+      };
+      if (Number(req.headers['content-length'] || 0) > 8192) { rejectBody(); return; }
       const buffer = [];
-      for await (const chunk of req) buffer.push(chunk);
+      let bytes = 0;
+      for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+        bytes += chunk.length;
+        if (bytes > 8192) { rejectBody(); return; }
+        buffer.push(chunk);
+      }
       const reqBody = buffer.length ? Buffer.concat(buffer) : null;
-      
-      const request = new Request(`${origin}${req.url}`, {
+
+      const request = new Request(`http://${req.headers.host}${req.url}`, {
         method: req.method,
         headers: req.headers,
         body: reqBody,
@@ -42,14 +53,21 @@ async function main() {
       res.end();
     } catch (error) {
       console.error('Server error:', error);
+      if (res.headersSent) { res.destroy(error); return; }
       res.writeHead(500);
       res.end('Internal Server Error');
     }
   });
+  server.requestTimeout = 15000;
+  server.headersTimeout = 10000;
 
   server.listen(port, '127.0.0.1', () => {
     console.log(`RINGOUT game available on: ${origin}`);
   });
 }
 
-main().catch(console.error);
+main().catch(error => { console.error(error); process.exitCode = 1; });
+// Purpose: Serve local gameplay and shared maps while bounding HTTP input and preserving matching browser origins.
+// Upstream: dist/server/index.js is generated from game assets/maps-api/worker; local-db.mjs supplies migrated SQLite storage.
+// Environment: Node 24+ / local Windows, macOS or Linux. Updated: 2026-10-04 America/New_York.
+// Changes: lines 2,24-40 validate targets, reject uploads above 8192 bytes and use the validated Host; 56 preserves streaming errors; 61-62 set timeouts; 69 returns a failing startup status.
