@@ -12,5 +12,5 @@
     "test": "node test-engine.cjs && node test-platformer.cjs && node test-platform-features.cjs && node test-jump-pads.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-maps.mjs",
     "db:generate": "drizzle-kit generate"
   },
-  "devDependencies": { "drizzle-kit": "0.31.10", "drizzle-orm": "0.45.2" }
+  "devDependencies": { "drizzle-kit": "0.31.10", "drizzle-orm": "0.45.3" }
 }
