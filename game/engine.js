@@ -83,7 +83,7 @@
       }
       for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)this.collide(this.players[i],this.players[j]);
       const eliminated=[];
-      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);this.emit('eliminated',{id:p.id,x:p.x,y:p.y});}}
+      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined});}}
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null)this.scores[this.roundWinner]++;this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
