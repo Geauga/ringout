@@ -20,3 +20,4 @@ Major Changes:
 2026-10-03 19:41:39 - Added descriptive comments to GitHub Actions workflows (codeql.yml, pages.yml). Added descriptions to character skins in engine.js and updated game.js to render them dynamically under the skin selection dropdown in the lobby UI.
 2026-10-03 19:47:36 - Added HTML descriptions to community standard files (CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md, SUPPORT.md). Fixed GitHub Actions workflow deployment in pages.yml by correctly running corepack enable and pnpm install so dependencies are resolved.
 2026-10-03 20:04:07 - Built portable RINGOUT-secure package using package.ps1.
+2026-10-03 20:12:50 - Removed PIN authentication completely from the game. Deleted auth files and updated scripts/build.mjs, server.cjs, start.cmd, and package.ps1 to serve the game as a standard local static application.

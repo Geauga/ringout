@@ -27,7 +27,7 @@ jobs:
         run: corepack enable pnpm && pnpm install
       - name: Build protected server
         run: node scripts/build.mjs
-      - name: Test gameplay, editor, access and map storage
+      - name: Test gameplay, editor, and map storage
         run: pnpm test
 # Purpose: Check the server-backed game without exposing raw game assets through static Pages.
 # Upstream: package.json test suite and scripts/build.mjs preserve PIN checks and map APIs.

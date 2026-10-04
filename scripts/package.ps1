@@ -5,7 +5,7 @@ $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $stagePath = Join-Path $projectRoot ('.tmp/package-' + [Guid]::NewGuid().ToString('N'))
 $releasePath = Join-Path $projectRoot 'release'
 New-Item -ItemType Directory -Path $stagePath,$releasePath -Force | Out-Null
-foreach ($name in @('server.cjs','start.cmd','README.md','SECURITY.md','.env.example','src/auth.mjs','scripts/setup-pin.mjs','scripts/local-db.mjs','dist/server/index.js','dist/server/package.json')) {
+foreach ($name in @('server.cjs','start.cmd','README.md','.env.example','scripts/local-db.mjs','dist/server/index.js','dist/server/package.json')) {
   $targetPath = Join-Path $stagePath $name
   New-Item -ItemType Directory -Path (Split-Path $targetPath) -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination $targetPath
