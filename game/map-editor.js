@@ -1,5 +1,5 @@
 // map-editor.js
-// Request: Let players drag, resize, save and play custom platformer maps.
+// Request: Refresh stale saved-map revisions while preserving unsaved edits as separate drafts.
 (function(root){
   'use strict';
   const clone=value=>JSON.parse(JSON.stringify(value));
@@ -24,9 +24,32 @@
       }
       select.value=selected.id;
     }
+    function refreshCurrentMap(previous=saved){
+      if(busy||locked||!isLobby()||dialog.open)return false;
+      let preserved=false;
+      if(draft?.revision){
+        const latest=saved.find(map=>map.id===draft.id);
+        if(!latest||latest.revision>draft.revision){
+          const original=previous.find(map=>map.id===draft.id&&map.revision===draft.revision)||(selected.id===draft.id&&selected.revision===draft.revision?selected:null);
+          let unchanged=false;
+          try{unchanged=!!original&&JSON.stringify(RingoutMaps.validate(draft))===JSON.stringify(RingoutMaps.validate(original));}catch(error){unchanged=false;}
+          if(unchanged)draft=latest?clone(latest):null;
+          else{draft.id='draft';delete draft.revision;preserved=true;}
+        }
+      }
+      if(selected.revision){
+        const latest=saved.find(map=>map.id===selected.id);
+        if(!latest||latest.revision>selected.revision)choose(latest||presets[0]);
+      }
+      return preserved;
+    }
     async function load(){
       $('map-reload').disabled=true;status('Loading saved maps…');
-      try{saved=(await api('/api/maps')).maps;refreshPicker();status(saved.length?`${saved.length} saved map${saved.length===1?'':'s'} · shared in this game`:'Build a map of your own.');}
+      try{
+        const maps=(await api('/api/maps')).maps,previous=saved;saved=maps;
+        const preserved=refreshCurrentMap(previous);
+        refreshPicker();status(preserved?'Library reloaded. Your edits were kept as an unsaved draft; reopen the editor to save a separate copy.':saved.length?`${saved.length} saved map${saved.length===1?'':'s'} · shared in this game`:'Build a map of your own.');
+      }
       catch(error){console.error('Map library load failed:',error);status(error.message);}
       finally{$('map-reload').disabled=locked;}
     }
@@ -83,9 +106,10 @@
     }
     function open(fresh=false){
       if(!isLobby())return;
+      if(!fresh)refreshCurrentMap();
       if(fresh)draft={name:'Untitled map',platforms:[{id:'floor',x:190,y:540,w:620,h:26}]};
       else if(!draft){draft=clone(selected);if(!draft.revision){delete draft.id;draft.name=draft.name+' remix';}}
-      platformId='floor';$('map-name').value=draft.name;$('editor-status').textContent='';render();dialog.showModal();
+      platformId='floor';$('map-name').value=draft.name;$('editor-status').textContent=draft.id==='draft'?'Unsaved draft. Save map creates a separate copy.':'';render();dialog.showModal();
     }
     function boundPlatform(p){
       p.w=Math.max(p.id==='floor'?420:90,Math.min(900,Math.round(p.w/10)*10));
@@ -171,3 +195,4 @@
 // Updated: 2026-09-19 America/New_York. Line 34 refreshes selection status; lines 50-56 populate motion/drop controls; 67-78 preview paths and behavior; 98-104 edit settings; 123-125 commit numeric edits on blur; 147-152 distinguish unsaved edits from saved maps. Purpose: author and preserve custom platform features; upstream: maps.js validation and map API; environment: browser.
 // Updated: 2026-09-23 America/New_York. Lines 136-140 commit focused fields before changing platform selection and drag origin. Purpose: prevent cross-platform edits; upstream: editor focus/blur handlers; environment: browser.
 // Updated: 2026-10-03 America/New_York. Lines 51,75,78,128 add the independent jump-pad toggle, accessible label and centered marker. Purpose: author saved jump pads; upstream: maps.js validation and map API; environment: browser.
+// Updated: 2026-10-05 America/New_York. Lines 2,27-54 reconcile reloaded saved revisions, refresh unchanged drafts and preserve dirty/deleted-map edits as new drafts; 109,112 defer open-dialog reconciliation until reopening and explain separate-copy saves. Purpose: conflict recovery without losing edits; upstream: maps-api.mjs revisions and maps.js validation; environment: browser DOM/fetch.

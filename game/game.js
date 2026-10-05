@@ -1,5 +1,5 @@
 // game.js
-// Request: Add latest-match replays while preserving four-player arena/platformer gameplay, controls, skins and custom maps.
+// Request: Preserve player assignments and pause lobby replays when an assigned controller disconnects.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -109,7 +109,7 @@
       const select=$(`player-${i}`),old=select.value;for(const option of Array.from(select.options))if(option.value.startsWith('gamepad'))option.remove();
       for(const pad of list){const option=document.createElement('option');option.value=`gamepad${pad.index}`;option.textContent=`Controller ${pad.index+1}`;select.add(option);}
       if(old.startsWith('gamepad')&&!list.some(p=>`gamepad${p.index}`===old)){
-        if(engine.phase!=='lobby'){const option=document.createElement('option');option.value=old;option.textContent='Controller disconnected';select.add(option);select.value=old;pause('A controller disconnected. Reconnect it to continue.');}
+        if(replayPlayer||engine.phase!=='lobby'){const option=document.createElement('option');option.value=old;option.textContent='Controller disconnected';select.add(option);select.value=old;pause('A controller disconnected. Reconnect it to continue.');}
         else{select.value='bot';configure();}
       }else select.value=old;
     }
@@ -296,3 +296,4 @@
 // Updated: 2026-10-04 America/New_York. Changed lines 8-11,23,33,38,65-89,130-286: recording at match start/fixed steps, independent display snapshots, replay controls/input locks, immediate skin HUD refresh and skin retention across modes. Purpose: latest-match replay without changing simulation; upstream: replay.js plus existing engines/UI; environment: browser.
 // Updated: 2026-10-04 America/New_York. Lines 2,19,29,64 refresh skin score names/colors, copy four selections into the next engine and lock skin controls during matches. Purpose: consistent lobby/match skins; upstream: ArenaEngine/PlatformerEngine setSkin and fighter definitions; environment: browser DOM/Canvas.
 // Updated: 2026-10-05 America/New_York. Line 71 combines incoming house-rule setup locks with replay exit/pause visibility. Purpose: preserve latest GitHub controls during replay; upstream: 20033e5 and replay integration; environment: browser.
+// Updated: 2026-10-05 America/New_York. Lines 2,112 treat replay playback as locked setup even when the live engine is in the lobby. Purpose: preserve assignments and pause playback on controller loss; upstream: replay.js playback and existing controller discovery; environment: browser gamepad API.

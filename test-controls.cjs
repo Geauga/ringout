@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Regress local input, skin selection and isolated replay controls in both game modes.
+// Request: Regress local input, skin selection and replay controller-disconnect isolation in both game modes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -192,6 +192,23 @@ for(const mode of ['arena','platformer']){
   ui.click('start');ui.tick(.5);ui.click('reset');assert.equal(ui.snapshot().replay.available,true,'stopped matches can be replayed');
   console.log(`PASS: ${mode} completed/stopped replay, seek/speed/pause/exit and input isolation`);
 }
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);ui.configure(['keyboard','keyboard','keyboard','keyboard']);
+  ui.get('win-target').value='1';ui.get('win-target').dispatch('change');ui.click('start');ui.tick(3.2);
+  ui.engine.players.slice(1).forEach(p=>p.alive=false);ui.tick(3);ui.click('reset');
+  const pad={index:0,id:'Replay disconnect test',mapping:'standard',connected:true,axes:[0,0],buttons:[]};
+  ui.setPads([pad]);ui.configure(['gamepad0','keyboard','keyboard','keyboard']);ui.click('watch-replay');
+  const live=JSON.stringify(ui.engine.snapshot());ui.setPads([]);
+  assert.equal(JSON.stringify(ui.engine.snapshot()),live,'replay disconnect must preserve the live lobby and assignments');
+  assert.equal(ui.snapshot().replay.playing,false,'controller disconnect pauses lobby replay');
+  const time=ui.snapshot().replay.time;ui.tick(.2);assert.equal(ui.snapshot().replay.time,time);
+  assert.equal(ui.get('player-0').disabled,true);
+  ui.setPads([pad]);assert.equal(ui.snapshot().replay.playing,false,'reconnection does not automatically resume playback');
+  assert.equal(ui.get('player-0').value,'gamepad0');ui.setPads([]);ui.click('exit-replay');ui.click('start');
+  assert.equal(ui.snapshot().phase,'lobby','missing controller cannot start after exiting a replay');
+  ui.setPads([pad]);ui.click('start');assert.equal(ui.snapshot().phase,'countdown');
+  console.log(`PASS: ${mode} lobby replay disconnect preserves setup, pauses playback and supports reconnection`);
+}
 // Purpose: Exercise real game.js event handlers and engines without changing production code or requiring browser hardware.
 // Upstream: game/game.js connects browser input to game/engine.js and game/platformer.js simulations.
 // Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
@@ -199,3 +216,4 @@ for(const mode of ['arena','platformer']){
 // Updated: 2026-10-04 America/New_York. Changed lines 9-16,75-90,176-193: observe both engines and exercise real replay handlers, setup/input isolation, slider end, seek/speed, completion and lobby restoration. Purpose: integrated replay regressions; upstream: game.js/replay.js; environment: Node VM with simulated DOM.
 // Updated: 2026-10-05 America/New_York. Line 185 checks incoming house-rule locks during replay. Purpose: merge regression; upstream: real game.js; environment: Node VM.
 // Updated: 2026-10-04 America/New_York. Lines 2,29,32 model skin selects/styles; 127-153 verify immediate scores, mode preservation and countdown/play/pause/lobby locking. Purpose: skin/control regressions; upstream: real game.js handlers and both engines; environment: Node 24 VM DOM harness.
+// Updated: 2026-10-05 America/New_York. Lines 2,195-211 verify both lobby replay modes preserve live state, pause on disconnect, stay paused after reconnect and block starting with a missing controller. Purpose: behavioral disconnect regression; upstream: real game.js/replay handlers; environment: Node 24 simulated DOM/gamepad API.
