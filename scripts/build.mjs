@@ -18,7 +18,13 @@ await mkdir(new URL('dist/server/', root), { recursive: true });
 await writeFile(new URL('dist/server/index.js', root), bundle);
 await writeFile(new URL('dist/server/package.json', root), '{"type":"module"}\n');
 await mkdir(new URL('dist/.openai/', root), { recursive: true });
-await cp(new URL('.openai/hosting.json', root), new URL('dist/.openai/hosting.json', root)).catch(() => {});
+await cp(new URL('.openai/hosting.json', root), new URL('dist/.openai/hosting.json', root)).catch(error => {
+  if (error.code !== 'ENOENT') throw error;
+  console.warn('Optional hosting manifest is absent; building the local server only.');
+});
 await cp(new URL('drizzle/', root), new URL('dist/.openai/drizzle/', root), { recursive: true });
 console.log(`Built game: ${fileURLToPath(new URL('dist/server/index.js', root))} (${Buffer.byteLength(bundle)} bytes)`);
 // Purpose: Embed authored game assets in the Worker. Upstream: game/ and maps API. Environment: Node 24. Updated: 2026-10-04 America/New_York. Changed line 7: include replay.js behind the same asset routes.
+// Purpose: Generate the embedded server bundle and optional hosting metadata without hiding unexpected copy errors.
+// Upstream: game assets and maps-api/worker handlers; drizzle migrations provide map storage.
+// Environment: Node 24+ built-ins. Updated: 2026-10-04 America/New_York. Changes: lines 21-24 only allow missing optional hosting metadata and retain a visible diagnostic.

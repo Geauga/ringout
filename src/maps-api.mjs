@@ -1,5 +1,5 @@
 // maps-api.mjs
-// Request: Store PIN-authorized custom platformer maps with conflict-safe editing.
+// Request: Store shared custom platformer maps with same-origin, conflict-safe editing.
 import MapDefinitions from '../game/maps.js';
 const mapResult=(status,data)=>({status,body:JSON.stringify(data)});
 export async function mapsApi(request,url,db,now,readBody){
@@ -30,4 +30,5 @@ export async function mapsApi(request,url,db,now,readBody){
   const row=await db.prepare('UPDATE custom_maps SET map_json=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? RETURNING id,revision').bind(JSON.stringify(map),now,id,input.revision).first();
   return row?mapResult(200,{map:{...row,...map}}):mapResult(409,{error:'This map changed or was deleted elsewhere. Save a new copy to keep your edits.'});
 }
-// Purpose: Persistent shared map library. Upstream: maps.js validation and generated SQLite schema. Environment: D1 / Node adapter; caller enforces PIN session. Generated: 2026-09-18 America/New_York. New file, all lines.
+// Purpose: Persistent shared map library. Upstream: maps.js validation and generated SQLite schema. Environment: D1 / Node adapter. Generated: 2026-09-18 America/New_York. New file, all lines.
+// Updated: 2026-10-04 America/New_York. Lines 2,33 describe the current same-origin API after deliberate PIN removal; storage behavior is unchanged.

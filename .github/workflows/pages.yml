@@ -1,7 +1,7 @@
 # pages.yml
-# Request: Review and push without publishing a copy that bypasses the server PIN gate.
-name: Validate protected game
-# Description: This workflow builds and tests the Ringout application, ensuring the PIN-protected server package works correctly without exposing the raw assets.
+# Request: Build and test gameplay, the map library, and the local HTTP server.
+name: Validate game
+# Description: Validate the server-backed game; saved maps require its API.
 
 on:
   push:
@@ -25,11 +25,12 @@ jobs:
           node-version: '24'
       - name: Enable Corepack and install dependencies
         run: corepack enable pnpm && pnpm install
-      - name: Build protected server
+      - name: Build server
         run: node scripts/build.mjs
       - name: Test gameplay, editor, and map storage
         run: pnpm test
 # Purpose: Check the server-backed game without exposing raw game assets through static Pages.
-# Upstream: package.json test suite and scripts/build.mjs preserve PIN checks and map APIs.
+# Upstream: package.json test suite and scripts/build.mjs validate gameplay and map APIs.
 # Environment: GitHub Actions / Node 24. Updated: 2026-09-23 America/New_York.
 # Changes: lines 1-31 replace static deployment and PIN stripping with build/test validation.
+# Updated: 2026-10-04 America/New_York. Lines 2-4,28,33 remove obsolete PIN descriptions; pnpm test also checks the real local HTTP adapter. Purpose/environment remain as documented above.

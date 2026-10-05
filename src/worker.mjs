@@ -48,6 +48,10 @@ export function createWorker(assets, clock = () => Math.floor(Date.now() / 1000)
         return reply(request.method === 'HEAD' ? null : assets[target].body, 200, { 'Content-Type': types[ext] || 'application/octet-stream' });
       }
       return reply('Not found', 404);
-    } catch (error) { return reply('Internal Server Error', 500); }
+    } catch (error) { console.error('RINGOUT request failed:', error); return reply('Internal Server Error', 500); }
   }};
 }
+// Purpose: Serve game assets and the map API with response headers and visible failure diagnostics.
+// Upstream: maps-api.mjs validates/persists shared maps; build.mjs embeds game assets in the Worker bundle.
+// Environment: Workers/D1 or Node 24+ local adapter. Updated: 2026-10-04 America/New_York.
+// Changes: line 51 restores error logging removed with the PIN gate; no authentication is reintroduced.

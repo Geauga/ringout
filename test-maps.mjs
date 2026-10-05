@@ -1,5 +1,5 @@
 // test-maps.mjs
-// Request: Verify custom map validation, gameplay, persistence and authenticated editing.
+// Request: Verify custom map validation, gameplay, persistence, same-origin editing and server failure behavior.
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -37,8 +37,7 @@ const filename=fileURLToPath(new URL(`.tmp/maps-test-${Date.now()}.sqlite`,impor
 const migrations=new URL('drizzle/',import.meta.url);let DB=openDatabase(filename,migrations);
 const worker=createWorker({}),origin='https://maps.example';
 const env=()=>({DB});
-let cookie='';
-const send=(path,{body,method=body?'POST':'GET',originHeader=origin,auth=true}={})=>worker.fetch(new Request(origin+path,{method,headers:{Origin:originHeader,...(auth?{Cookie:cookie}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})}),env());
+const send=(path,{body,method=body?'POST':'GET',originHeader=origin}={})=>worker.fetch(new Request(origin+path,{method,headers:{Origin:originHeader,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})}),env());
 assert.equal((await send('/api/maps',{body:{map:basic},originHeader:'https://other.example'})).status,403);
 assert.equal((await send('/api/maps',{body:{map:invalid}})).status,400);
 assert.equal((await send('/api/maps',{body:{map:{...basic,platforms:[{...basic.platforms[0],jumpPad:'yes'}]}}})).status,400,'server rejects invalid jump-pad field');
@@ -59,8 +58,10 @@ const concurrent=await Promise.all(Array.from({length:55},(_,i)=>send('/api/maps
 assert.equal(concurrent.filter(r=>r.status===201).length,50);assert.equal(concurrent.filter(r=>r.status===409).length,5);
 assert.equal((await (await send('/api/maps')).json()).maps.length,50,'atomic library bound');
 const {default:bundle}=await import('./dist/server/index.js');
-assert.equal((await bundle.fetch(new Request(origin+'/api/maps',{headers:{Cookie:cookie}}),env())).status,200,'bundled endpoint');
+assert.equal((await bundle.fetch(new Request(origin+'/api/maps'),env())).status,200,'bundled endpoint');
 const bundleText=await readFile(new URL('dist/server/index.js',import.meta.url),'utf8');assert.ok(bundleText.includes('Map workshop'));
-DB.close();console.log('PASS: map API authentication, CSRF, bounded input, create/list/update/delete, stale-edit protection, persistence, atomic 50-map cap and server bundle');
+assert.equal((await worker.fetch(new Request(origin+'/api/maps'),{DB:{prepare(){throw new Error('Simulated map storage failure');}}})).status,500,'storage failure produces a server error while retaining diagnostics');
+DB.close();console.log('PASS: map API same-origin checks, bounded input, create/list/update/delete, stale-edit protection, persistence, atomic 50-map cap, failure handling and server bundle');
 // Purpose: Real simulation and SQLite-backed custom map checks. Upstream: map definitions, engine, Worker and migrations. Environment: Node 24. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-10-03 America/New_York. Lines 32,46,52,56 verify jump-pad API validation, save and restart persistence. Purpose: protect stored feature data; upstream: maps API and shared schema; environment: Node 24/SQLite.
+// Updated: 2026-10-04 America/New_York. Lines 2,39,61 remove obsolete authentication fixtures; 63-64 exercise visible storage failure handling and describe current API checks. Purpose: map regression coverage; upstream: worker/maps-api and local SQLite; environment: Node 24 built-ins.

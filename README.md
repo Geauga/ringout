@@ -2,7 +2,7 @@
 
 A local four-player arena game. Dash into other fighters to knock them off the platform. The last fighter standing wins the round; the first to the selected number of wins takes the match.
 
-Choose **Arena** for the original top-down game, or **Platformer** for the side-view version. Switch modes in the lobby; your player assignments and round-win target are preserved.
+Choose **Arena** for the original top-down game, or **Platformer** for the side-view version. Switch modes in the lobby; your player assignments, selected skins, and round-win target are preserved. Select skins before starting; skin choices stay locked until you return to the lobby.
 
 Choose a stage under **The map**, or open **Map editor** to build your own Platformer stage. Drag platforms, nudge the selected platform with arrow keys, or change its X/Y position and width. **+ New map** starts with a main floor; **Add ledge** creates another platform. Colored P1–P4 markers show the automatic starting positions. Maps support up to 12 platforms, with live checks for bounds, spacing, and reachable ledges.
 
@@ -12,13 +12,11 @@ Ledges can move horizontally or vertically, and can optionally allow players to 
 
 Gold **jump pads** launch any fighter upward automatically when they step or land on the marked center strip and refill both air jumps. In **Map editor**, select any platform and check **Add a jump pad**, then save or play the draft. Pads can ride moving ledges; Down still drops through a ledge when enabled. **Spring Yard** is ready to play with pads already placed.
 
-The downloadable `RINGOUT-secure.zip` includes **Node.js 24 for Windows x64**. Extract it and double-click `start.cmd` on Windows. Source checkouts and macOS/Linux require an installed **Node.js 24 or newer**; run `node scripts/build.mjs` followed by `node server.cjs`. Visit `http://127.0.0.1:4173`. The release needs no package installation or PIN setup. Google Fonts is optional; system fonts work without internet. The archive retains its existing filename for compatibility.
+PIN protection has been removed from the current source version. The downloadable `RINGOUT-secure.zip` includes **Node.js 24 for Windows x64**; the archive keeps its original filename for compatibility. Extract it and double-click `start.cmd` on Windows. Source checkouts and macOS/Linux require an installed **Node.js 24 or newer**; run `node server.cjs` after building. Visit `http://127.0.0.1:4173` or `http://localhost:4173`. No setup command or PIN is required. The release needs no package installation. Google Fonts is optional; system fonts work without internet.
 
-From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check both game modes, replays, input, the editor and map storage. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`.
+From a source checkout, run `node scripts/build.mjs` before starting. Development schema changes use `pnpm install` and `pnpm db:generate`; normal builds and gameplay use only Node built-ins. Run `pnpm test` to check gameplay, controls, the map editor, map storage, and the local HTTP server. Server checks use a fresh database in an ignored `.tmp/server-check-*` directory. On Windows, `pwsh -File scripts/package.ps1` packages the completed build into `release/RINGOUT-secure.zip`; test a fresh extraction with `node scripts/test-package.mjs <extracted-directory>`.
 
-GitHub Actions builds the server and runs the tests on pushes and pull requests. GitHub Pages cannot run the saved-map API; the workflow does not publish the raw `game/` directory. Use the existing Site or the local server to play.
-
-The local and hosted game no longer use a game PIN. The hosted Site retains its existing owner-only sharing. Local play binds to loopback. Map changes retain same-origin validation, bounded input and revision checks. Never commit `.env`, `.private/`, or `.data/`.
+GitHub Actions builds the server and runs the tests on pushes and pull requests. GitHub Pages cannot run the saved-map API, so the workflow performs validation only. The local server accepts loopback Host headers and requires a matching browser Origin for map changes. Uploads are limited to 8192 bytes before buffering. Never commit local `.env`, `.private/`, or `.data/` files. The package excludes existing configuration and saved maps.
 
 1: Player 1 uses W/A/S/D and Space to dash.
 
