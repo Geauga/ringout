@@ -32,7 +32,7 @@
       this.skins[id] = skinIndex % SKINS.length;
       this.makeRound();
     }
-    configure(modes, target) {
+    configure(modes, target, shrinkTime=18, lastStanding='round') {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing players.');
       if(!Array.isArray(modes) || modes.length!==4 || !modes.every(m=>m==='bot'||m==='keyboard'||/^gamepad[0-3]$/.test(m))) throw new Error('Choose four valid player controls.');
       if(![1,3,5].includes(target)) throw new Error('Round win target must be 1, 3, or 5.');
@@ -67,8 +67,8 @@
         this.clock-=dt;if(this.clock<=0){if(this.roundWinner!==null&&this.scores[this.roundWinner]>=this.target){this.phase='matchOver';this.emit('matchOver',{winner:this.roundWinner});}else{this.round++;this.makeRound();this.phase='countdown';this.emit('countdown',{number:3});}}return;
       }
       this.elapsed+=dt;
-      this.radius=Math.max(0,267-Math.max(0,this.elapsed-18)*4.8);
-      if(this.elapsed>=18&&!this.shrinking){this.shrinking=true;this.emit('shrink');}
+      this.radius=Math.max(0,267-Math.max(0,this.elapsed-(this.shrinkTime||18))*4.8);
+      if(this.elapsed>=(this.shrinkTime||18)&&!this.shrinking&&(this.shrinkTime||18)<999){this.shrinking=true;this.emit('shrink');}
       for(const [key,remaining] of this.hitPairs){if(remaining<=dt)this.hitPairs.delete(key);else this.hitPairs.set(key,remaining-dt);}
       for(const p of this.players){
         if(!p.alive)continue;
@@ -85,7 +85,7 @@
       const eliminated=[];
       for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined});}}
       const alive=this.players.filter(p=>p.alive);
-      if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null)this.scores[this.roundWinner]++;this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
+      if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
     collide(a,b){
       if(!a.alive||!b.alive)return;

@@ -63,7 +63,7 @@
       // Reuse the original countdown, pause, scoring transition, replay, and match completion.
       if(this.phase!=='playing'){super.step(dt,inputs);return;}
       this.elapsed+=dt;
-      const erosion=Math.max(0,this.elapsed-18);
+      const erosion=Math.max(0,this.elapsed-(this.shrinkTime||18));
       const previous=new Map(this.platforms.map(s=>[s.id,s]));
       this.platforms=this.mapDefinition.platforms.map(s=>{
         const w=Math.max(0,s.w*(1-erosion/60)),offset=motionOffset(s,this.elapsed),delta=offset-motionOffset(s,this.elapsed-dt),old=previous.get(s.id);
