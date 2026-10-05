@@ -22,3 +22,4 @@ Major Changes:
 2026-10-03 20:04:07 - Built portable RINGOUT-secure package using package.ps1.
 2026-10-03 20:12:50 - Removed PIN authentication completely from the game. Deleted auth files and updated scripts/build.mjs, server.cjs, start.cmd, and package.ps1 to serve the game as a standard local static application.
 2026-10-04 17:05:26 - Attributed knockouts to players: Updated engine.js to track 'lastHitBy' logic, and updated game.js to explicitly announce who knocked out a player.
+2026-10-05 17:06:04 - Made House Rules 'Arena shrinks' and 'Last one standing' customizable with dropdowns in index.html, updating engine.js, game.js, and platformer.js to use them.

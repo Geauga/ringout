@@ -22,6 +22,8 @@
     $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${skin.color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; height: 1.2em;">${skin.description}</div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
     for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;hudSignature='';updateUI();});}
     $('win-target').addEventListener('change',configure);
+      $('shrink-time').addEventListener('change',configure);
+      $('last-standing').addEventListener('change',configure);
     $('mode-arena').addEventListener('click',()=>setGameMode('arena'));
     $('mode-platformer').addEventListener('click',()=>setGameMode('platformer'));
     configure();applyModeUI();drawScores();
@@ -54,8 +56,8 @@
     $('help-keys').innerHTML=rows.map((row,i)=>`<p><strong>${['Player 1','Player 2','Player 3','Player 4','Gamepad','Touch'][i]}</strong><span>${row}</span></p>`).join('');
   }
   function configure(){
-    const modes=[0,1,2,3].map(i=>$(`player-${i}`).value),target=Number($('win-target').value);
-    try{engine.configure(modes,target);}catch(error){announce(error.message,4);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];return;}
+    const modes=[0,1,2,3].map(i=>$(`player-${i}`).value),target=Number($('win-target').value),shrinkTime=Number($('shrink-time').value),lastStanding=$('last-standing').value;
+    try{engine.configure(modes,target,shrinkTime,lastStanding);}catch(error){announce(error.message,4);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];return;}
     for(let i=0;i<4;i++)$(`hint-${i}`).textContent=engine.modes[i]==='keyboard'?(platforming()?platformHints[i]:hints[i]):engine.modes[i]==='bot'?'AUTO-PILOT, NO MERCY':platforming()?'A / ✕ JUMP · X / □ DASH':'LEFT STICK  /  A or ✕';
     $('touch-controls').hidden=engine.modes[0]!=='keyboard';
     const humans=engine.modes.filter(m=>m!=='bot').length;
@@ -66,7 +68,7 @@
     const engine=view();
     $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span></div>`).join('');
   }
-  function lockSetup(locked){for(let i=0;i<4;i++){$(`player-${i}`).disabled=locked;$(`skin-${i}`).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
+  function lockSetup(locked){for(let i=0;i<4;i++){$(`player-${i}`).disabled=locked;$(`skin-${i}`).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -293,3 +295,4 @@
 // Updated: 2026-10-03 America/New_York. Lines 47,112,167 add jump-pad instructions, gold launch particles/sound and pad-strip rendering. Purpose: identify and explain launches; upstream: platformer.js events and maps.js pad bounds; environment: browser Canvas/Web Audio.
 // Updated: 2026-10-04 America/New_York. Changed lines 8-11,23,33,38,65-89,130-286: recording at match start/fixed steps, independent display snapshots, replay controls/input locks, immediate skin HUD refresh and skin retention across modes. Purpose: latest-match replay without changing simulation; upstream: replay.js plus existing engines/UI; environment: browser.
 // Updated: 2026-10-04 America/New_York. Lines 2,19,29,64 refresh skin score names/colors, copy four selections into the next engine and lock skin controls during matches. Purpose: consistent lobby/match skins; upstream: ArenaEngine/PlatformerEngine setSkin and fighter definitions; environment: browser DOM/Canvas.
+// Updated: 2026-10-05 America/New_York. Line 71 combines incoming house-rule setup locks with replay exit/pause visibility. Purpose: preserve latest GitHub controls during replay; upstream: 20033e5 and replay integration; environment: browser.

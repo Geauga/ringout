@@ -180,6 +180,7 @@ for(const mode of ['arena','platformer']){
   ui.engine.players.slice(1).forEach(p=>p.alive=false);ui.tick(3);
   assert.equal(ui.snapshot().phase,'matchOver');assert.equal(ui.snapshot().replay.available,true);const live=JSON.stringify(ui.engine.snapshot());
   ui.click('watch-replay');assert.equal(ui.snapshot().replay.watching,true);assert.equal(ui.get('overlay').hidden,true);assert.equal(ui.get('skin-0').disabled,true);
+  for(const rule of ['shrink-time','last-standing'])assert.equal(ui.get(rule).disabled,true,'incoming rule choices are locked during replays');
   assert.throws(()=>ui.tools.get('configure_match').execute({modes:['bot','bot','bot','bot'],target:1}),/Exit the replay/);
   ui.tick(.5);ui.click('replay-play');const paused=ui.snapshot().replay.time;ui.tick(1);assert.equal(ui.snapshot().replay.time,paused);
   ui.get('replay-seek').value='1';ui.get('replay-seek').dispatch('input');assert.equal(ui.snapshot().replay.time,1);
@@ -196,4 +197,5 @@ for(const mode of ['arena','platformer']){
 // Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
 // Updated: 2026-09-19 America/New_York. Lines 8-13,36-37,69-70,82 observe the real platformer engine and supply custom maps; 127-146 verify Down input for four keyboard layouts, controller stick/D-pad and touch. Purpose/upstream/environment remain as documented above.
 // Updated: 2026-10-04 America/New_York. Changed lines 9-16,75-90,176-193: observe both engines and exercise real replay handlers, setup/input isolation, slider end, seek/speed, completion and lobby restoration. Purpose: integrated replay regressions; upstream: game.js/replay.js; environment: Node VM with simulated DOM.
+// Updated: 2026-10-05 America/New_York. Line 185 checks incoming house-rule locks during replay. Purpose: merge regression; upstream: real game.js; environment: Node VM.
 // Updated: 2026-10-04 America/New_York. Lines 2,29,32 model skin selects/styles; 127-153 verify immediate scores, mode preservation and countdown/play/pause/lobby locking. Purpose: skin/control regressions; upstream: real game.js handlers and both engines; environment: Node 24 VM DOM harness.
