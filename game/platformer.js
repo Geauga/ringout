@@ -124,7 +124,7 @@
       for(const p of this.players){
         if(!p.alive)continue;
         this.land(p,p.prevY);
-        if(p.x<-70||p.x>1070||p.y>770||p.y<-170){p.alive=false;p.fall=0;this.emit('eliminated',{id:p.id,x:p.x,y:p.y});}
+        if(p.x<-70||p.x>1070||p.y>770||p.y<-170){p.alive=false;p.fall=0;this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined});}
       }
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null)this.scores[this.roundWinner]++;this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
