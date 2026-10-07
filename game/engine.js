@@ -18,7 +18,7 @@
   const NAMES = SKINS.map(s => s.name);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
       this.players = [0, 1, 2, 3].map(id => {
