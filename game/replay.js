@@ -1,12 +1,12 @@
 // replay.js
-// Request: Record local matches and provide isolated, bounded replay playback in both game modes.
+// Request: Preserve selected house rules and knockout counters in isolated replay snapshots.
 (function(root){
   'use strict';
   const copy=value=>JSON.parse(JSON.stringify(value));
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const active=new Set(['countdown','playing','roundOver']);
   function capture(engine,gameMode){
-    return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],players:engine.players.map(p=>{
+    return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],players:engine.players.map(p=>{
       const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps'])if(p[key]!==undefined)out[key]=p[key];return out;
     }),platforms:engine.platforms?copy(engine.platforms):[]};
   }
@@ -56,3 +56,5 @@
   const api={Recorder,Player};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RingoutReplay=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 // Purpose: Latest-match recording with a ten-minute memory cap and independent playback. Upstream: ArenaEngine/PlatformerEngine render state. Environment: browser or Node tests. Generated: 2026-10-04 America/New_York. New file: all lines.
+
+// Updated: 2026-10-07 America/New_York. Changed lines 2, 9: copy house rules and per-match knockout counters into each independent recorded frame. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.

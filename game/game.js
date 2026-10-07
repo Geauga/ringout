@@ -1,5 +1,5 @@
 // game.js
-// Request: Preserve player assignments and pause lobby replays when an assigned controller disconnects.
+// Request: Show selected house rules and preserve knockout counters during replay playback.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -51,9 +51,13 @@
     $('survive-label').textContent=p?'DOUBLE JUMP TO RECOVER':'HOLD YOUR GROUND';$('survive-caption').textContent=p?'Release W, then tap it again.':'The edge is not your friend.';
     $('touch-jump').hidden=!p;
     canvas.setAttribute('aria-label',p?'Platformer knockout game. A and D to move, W to double jump, S to drop through cyan ledges, Space to dash. Escape to pause.':'Knockout game arena. Move with WASD and press Space to dash. Press Escape to pause.');
-    $('help-description').textContent=p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Gold jump pads launch you upward and refill both air jumps. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through. Platforms start shrinking after 18 seconds.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch. The arena starts shrinking after 18 seconds.';
+    updateRuleHelp();
     const rows=p?['A / D move · W jump · S drop · Space dash','← / → move · ↑ jump · ↓ drop · Enter dash','J / L move · I jump · K drop · U dash','F / H move · T jump · G drop · R dash','Stick / D-pad down to drop · A / ✕ jump · X / □ dash','Thumbstick down to drop · JUMP · DASH']:['W A S D · Space to dash','Arrow keys · Enter to dash','I J K L · U to dash','T F G H · R to dash','Left stick / D-pad · A / ✕ to dash','Left thumbstick · DASH button'];
     $('help-keys').innerHTML=rows.map((row,i)=>`<p><strong>${['Player 1','Player 2','Player 3','Player 4','Gamepad','Touch'][i]}</strong><span>${row}</span></p>`).join('');
+  }
+  function updateRuleHelp(){
+    const p=platforming(),shrinkAdvice=engine.shrinkTime===999?'Shrinking is disabled.':`${p?'Platforms start':'The arena starts'} shrinking after ${engine.shrinkTime} seconds.`;
+    $('help-description').textContent=(p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Gold jump pads launch you upward and refill both air jumps. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch.')+' '+shrinkAdvice;
   }
   function configure(){
     const modes=[0,1,2,3].map(i=>$(`player-${i}`).value),target=Number($('win-target').value),shrinkTime=Number($('shrink-time').value),lastStanding=$('last-standing').value;
@@ -62,7 +66,7 @@
     $('touch-controls').hidden=engine.modes[0]!=='keyboard';
     const humans=engine.modes.filter(m=>m!=='bot').length;
     $('overlay-hint').textContent=`${humans} HUMAN${humans===1?'':'S'} + ${4-humans} BOT${4-humans===1?'':'S'} · FIRST TO ${target}`;
-    drawScores();
+    drawScores();updateRuleHelp();
   }
   function drawScores(){
     const engine=view();
@@ -131,10 +135,10 @@
   }}
   function updateUI(){
     const engine=view(),p=viewPlatforming();
-    const signature=engine.players.map(p=>p.damage+':'+p.alive).join('|')+engine.scores.join('|')+engine.target;if(signature!==hudSignature){drawScores();hudSignature=signature;}
+    const signature=engine.players.map(p=>p.damage+':'+p.alive).join('|')+engine.scores.join('|')+engine.knockouts.join('|')+engine.target;if(signature!==hudSignature){drawScores();hudSignature=signature;}
     $('round-label').textContent=engine.phase==='lobby'?'WARM-UP':`ROUND ${String(engine.round).padStart(2,'0')}`;
     const sec=Math.floor(engine.elapsed);$('timer').textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
-    $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):`SHRINKS IN ${Math.max(0,18-sec)} SEC`;
+    $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):engine.shrinkTime===999?'SHRINKING OFF':`SHRINKS IN ${Math.max(0,Math.ceil(engine.shrinkTime-engine.elapsed))} SEC`;
     $('arena-note').style.color=engine.shrinking?'#dcf87b':'';
     $('countdown').textContent=engine.phase==='countdown'?Math.max(1,Math.ceil(engine.clock)):'';
     $('match-status').textContent=({lobby:'READY WHEN YOU ARE',countdown:'GET READY',playing:`${engine.players.filter(p=>p.alive).length} FIGHTERS REMAIN`,paused:'MATCH PAUSED',roundOver:'ROUND COMPLETE',matchOver:'BRAGGING RIGHTS SECURED'})[engine.phase];
@@ -297,3 +301,5 @@
 // Updated: 2026-10-04 America/New_York. Lines 2,19,29,64 refresh skin score names/colors, copy four selections into the next engine and lock skin controls during matches. Purpose: consistent lobby/match skins; upstream: ArenaEngine/PlatformerEngine setSkin and fighter definitions; environment: browser DOM/Canvas.
 // Updated: 2026-10-05 America/New_York. Line 71 combines incoming house-rule setup locks with replay exit/pause visibility. Purpose: preserve latest GitHub controls during replay; upstream: 20033e5 and replay integration; environment: browser.
 // Updated: 2026-10-05 America/New_York. Lines 2,112 treat replay playback as locked setup even when the live engine is in the lobby. Purpose: preserve assignments and pause playback on controller loss; upstream: replay.js playback and existing controller discovery; environment: browser gamepad API.
+
+// Updated: 2026-10-07 America/New_York. Changed lines 2, 54-69, 138-142: derive instructions/countdown from actual rules and include recorded knockout counters in HUD refresh. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.

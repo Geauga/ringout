@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Regress local input, skin selection and replay controller-disconnect isolation in both game modes.
+// Request: Regress selected rules, credited knockout scores and replay playback alongside existing controls.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -28,10 +28,10 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id.startsWith('skin-') || id === 'win-target';
+    const select = id.startsWith('player-') || id.startsWith('skin-') || ['win-target','shrink-time','last-standing'].includes(id);
     return eventTarget({
       id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : 'BUTTON',
-      value: id === 'win-target' ? '3' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
+      value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
       setAttribute() {},
@@ -209,6 +209,30 @@ for(const mode of ['arena','platformer']){
   ui.setPads([pad]);ui.click('start');assert.equal(ui.snapshot().phase,'countdown');
   console.log(`PASS: ${mode} lobby replay disconnect preserves setup, pauses playback and supports reconnection`);
 }
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);ui.configure(['keyboard','keyboard','keyboard','keyboard']);
+  ui.get('win-target').value='5';ui.get('win-target').dispatch('change');
+  ui.get('shrink-time').value='30';ui.get('shrink-time').dispatch('change');
+  ui.get('last-standing').value='match';ui.get('last-standing').dispatch('change');
+  for(const next of ['arena','platformer',mode]){
+    ui.click('mode-'+next);assert.equal(ui.snapshot().shrinkTime,30);assert.equal(ui.snapshot().lastStanding,'match');
+  }
+  assert.match(ui.get('help-description').textContent,/after 30 seconds/);ui.click('start');ui.tick(3.1);
+  assert.equal(ui.get('arena-note').textContent,'SHRINKS IN 30 SEC');
+  const [a,b]=ui.engine.players,y=mode==='platformer'?519:354;
+  Object.assign(a,{x:480,y,vx:900,vy:0,dashTime:.1});Object.assign(b,{x:510,y,vx:0,vy:0});ui.engine.collide(a,b);
+  b.x=2000;ui.tick(.02);assert.equal(ui.snapshot().knockouts[0],1);
+  assert.match(ui.get('announcement').textContent,/CORAL KNOCKED OUT BLUE/);assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);
+  ui.engine.players.slice(2).forEach(p=>{p.x=2000;});ui.tick(3);
+  assert.equal(ui.snapshot().phase,'matchOver');assert.equal(ui.snapshot().scores[0],5);
+  ui.click('watch-replay');assert.equal(ui.snapshot().replay.watching,true);ui.tick(.1);
+  ui.get('replay-seek').value=ui.get('replay-seek').max;ui.get('replay-seek').dispatch('input');ui.tick(.01);
+  assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);ui.click('exit-replay');ui.click('reset');
+  ui.get('shrink-time').value='999';ui.get('shrink-time').dispatch('change');
+  assert.match(ui.get('help-description').textContent,/Shrinking is disabled/);ui.click('start');ui.tick(3.1);ui.engine.elapsed=1100;ui.tick(.02);
+  assert.equal(ui.get('arena-note').textContent,'SHRINKING OFF');assert.equal(ui.engine.shrinking,false);
+  console.log(`PASS: ${mode} rule controls/mode retention, dynamic instructions, knockout announcement/HUD and replay counters`);
+}
 // Purpose: Exercise real game.js event handlers and engines without changing production code or requiring browser hardware.
 // Upstream: game/game.js connects browser input to game/engine.js and game/platformer.js simulations.
 // Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
@@ -217,3 +241,5 @@ for(const mode of ['arena','platformer']){
 // Updated: 2026-10-05 America/New_York. Line 185 checks incoming house-rule locks during replay. Purpose: merge regression; upstream: real game.js; environment: Node VM.
 // Updated: 2026-10-04 America/New_York. Lines 2,29,32 model skin selects/styles; 127-153 verify immediate scores, mode preservation and countdown/play/pause/lobby locking. Purpose: skin/control regressions; upstream: real game.js handlers and both engines; environment: Node 24 VM DOM harness.
 // Updated: 2026-10-05 America/New_York. Lines 2,195-211 verify both lobby replay modes preserve live state, pause on disconnect, stay paused after reconnect and block starting with a missing controller. Purpose: behavioral disconnect regression; upstream: real game.js/replay handlers; environment: Node 24 simulated DOM/gamepad API.
+
+// Updated: 2026-10-07 America/New_York. Changed lines 2, 30-33, 213-237: supply real rule-select defaults and exercise both modes, rule retention, HUD/announcements and counter-bearing replay. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.

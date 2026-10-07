@@ -8,7 +8,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "node server.cjs",
-    "test": "node test-engine.cjs && node test-platformer.cjs && node test-platform-features.cjs && node test-jump-pads.cjs && node test-replay.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-maps.mjs && node scripts/test-package.mjs",
+    "test": "node test-engine.cjs && node test-platformer.cjs && node test-platform-features.cjs && node test-jump-pads.cjs && node test-match-rules.cjs && node test-replay.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-maps.mjs && node scripts/test-package.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "devDependencies": { "drizzle-kit": "0.31.10", "drizzle-orm": "0.45.2" }

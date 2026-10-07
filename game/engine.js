@@ -1,5 +1,5 @@
 // engine.js
-// Request: Four-player arena physics, dash knockback, bots, elimination, shrinking boundaries, and first-to-N matches.
+// Request: Honor selected house rules and attribute recent collision knockouts to the attacker.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -18,7 +18,7 @@
   const NAMES = SKINS.map(s => s.name);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
       this.players = [0, 1, 2, 3].map(id => {
@@ -36,8 +36,10 @@
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing players.');
       if(!Array.isArray(modes) || modes.length!==4 || !modes.every(m=>m==='bot'||m==='keyboard'||/^gamepad[0-3]$/.test(m))) throw new Error('Choose four valid player controls.');
       if(![1,3,5].includes(target)) throw new Error('Round win target must be 1, 3, or 5.');
+      if(![10,18,30,999].includes(shrinkTime)) throw new Error('Shrink time must be 10, 18, 30 seconds, or Never.');
+      if(!['round','match'].includes(lastStanding)) throw new Error('Last one standing must win the round or match.');
       const pads=modes.filter(m=>m.startsWith('gamepad')); if(new Set(pads).size!==pads.length) throw new Error('Each controller can control only one player.');
-      this.modes=[...modes]; this.target=target;
+      this.modes=[...modes]; this.target=target; this.shrinkTime=shrinkTime; this.lastStanding=lastStanding;
     }
     start() { this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
     lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
@@ -67,8 +69,8 @@
         this.clock-=dt;if(this.clock<=0){if(this.roundWinner!==null&&this.scores[this.roundWinner]>=this.target){this.phase='matchOver';this.emit('matchOver',{winner:this.roundWinner});}else{this.round++;this.makeRound();this.phase='countdown';this.emit('countdown',{number:3});}}return;
       }
       this.elapsed+=dt;
-      this.radius=Math.max(0,267-Math.max(0,this.elapsed-(this.shrinkTime||18))*4.8);
-      if(this.elapsed>=(this.shrinkTime||18)&&!this.shrinking&&(this.shrinkTime||18)<999){this.shrinking=true;this.emit('shrink');}
+      this.radius=this.shrinkTime===999?267:Math.max(0,267-Math.max(0,this.elapsed-this.shrinkTime)*4.8);
+      if(this.elapsed>=this.shrinkTime&&!this.shrinking&&this.shrinkTime!==999){this.shrinking=true;this.emit('shrink');}
       for(const [key,remaining] of this.hitPairs){if(remaining<=dt)this.hitPairs.delete(key);else this.hitPairs.set(key,remaining-dt);}
       for(const p of this.players){
         if(!p.alive)continue;
@@ -98,16 +100,19 @@
       const key=a.id+':'+b.id;
       const ad=a.dashTime>0&&!a.hit.has(b.id),bd=b.dashTime>0&&!b.hit.has(a.id);
       if(ad||bd){
-        if(ad){a.hit.add(b.id);b.damage=Math.min(250,b.damage+22);const force=690*(1+b.damage/150);b.vx+=nx*force;b.vy+=ny*force;a.vx-=nx*75;a.vy-=ny*75;}
-        if(bd){b.hit.add(a.id);a.damage=Math.min(250,a.damage+22);const force=690*(1+a.damage/150);a.vx-=nx*force;a.vy-=ny*force;b.vx+=nx*75;b.vy+=ny*75;}
+        if(ad){a.hit.add(b.id);b.lastHitBy=a.id;b.lastHitTime=this.elapsed;b.damage=Math.min(250,b.damage+22);const force=690*(1+b.damage/150);b.vx+=nx*force;b.vy+=ny*force;a.vx-=nx*75;a.vy-=ny*75;}
+        if(bd){b.hit.add(a.id);a.lastHitBy=b.id;a.lastHitTime=this.elapsed;a.damage=Math.min(250,a.damage+22);const force=690*(1+a.damage/150);a.vx-=nx*force;a.vy-=ny*force;b.vx+=nx*75;b.vy+=ny*75;}
         this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:1});this.hitPairs.set(key,.3);
       }else if(!this.hitPairs.has(key)&&relative<-30){
+        a.lastHitBy=b.id;a.lastHitTime=this.elapsed;b.lastHitBy=a.id;b.lastHitTime=this.elapsed;
         a.damage=Math.min(250,a.damage+4);b.damage=Math.min(250,b.damage+4);a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS};
   else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS});
 })(typeof globalThis!=='undefined'?globalThis:this);
 // Purpose: Deterministic-step game logic independent of rendering. Upstream: original user game request; no previous implementation. Environment: browser or Node.js for simulation validation. Generated: 2026-09-11 America/New_York. New file: all lines.
+
+// Updated: 2026-10-07 America/New_York. Changed lines 2, 21, 35-43, 72-73, 103-112: initialize/store/validate house rules, keep Never disabled, retain rules in snapshots and record dash/bump attacker timestamps. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.

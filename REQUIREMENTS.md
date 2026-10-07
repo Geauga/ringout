@@ -8,7 +8,7 @@ User request: “/grillme cureate a 4 player game with the goal to knock players
 
 3: Award a round to the final survivor. Support first to one, three, or five round wins; reset damage and positions between rounds. A simultaneous final knockout awards no points.
 
-4: Shrink the map after 18 seconds to ensure rounds resolve. In Platformer, narrow all platforms. Show scores, damage, current round, elapsed time, and remaining jumps where applicable.
+4: Shrink the map after 18 seconds by default to ensure rounds resolve. House Rules support 10, 18 or 30 seconds, or Never to disable shrinking permanently. In Platformer, narrow all platforms. Support either round wins or an immediate match win for the final survivor in both modes. Show scores, damage, current round, elapsed time, and remaining jumps where applicable.
 
 5: Support four independent keyboard control sets, standard gamepads, and Player 1 touch controls. Pause on focus loss or assigned-controller disconnection. Provide instructions, optional sound, replay, and lobby reset.
 
@@ -31,3 +31,5 @@ Scope: shared-device multiplayer only. Online matchmaking, individual player acc
 11: User request, 2026-10-04: add replays. Record the latest completed or stopped match in browser memory at 30 snapshots per second with a ten-minute cap. Support both modes, custom/moving/pad maps and skins. Provide play/pause, timeline seek, round selection, restart, 0.25/0.5/1/2 speed and exit. Preserve live scores/settings, exclude match pauses from recording and pause playback on focus loss. Replays are silent and expire on reload; a new recording keeps the previous replay until it ends. game/replay.js owns recording and interpolation independently of simulation, and game.js presents its read-only snapshots.
 
 12: Current access override, 2026-10-04: local repository commit 181d583 removed the PIN gate; the user explicitly requested removing the hosted PIN protection too. This supersedes older PIN requirements above. Preserve owner-only Site sharing and existing map input/origin/revision validation. Do not add a replacement Site or change its audience.
+
+13: User request, 2026-10-07: patch and push the reviewed House Rules and knockout-attribution bugs. Validate and store both rule choices, preserve them across modes, and show their actual timing in the HUD/help. Credit dash and damaging bump knockouts to the latest attacker within six elapsed gameplay seconds; clear attacker history each round. Preserve incoming preset maps and per-match knockout counters. Record counters and rules in isolated replay snapshots so watching a replay cannot crash or alter live scores. Verify both modes, replay/controller behavior and existing API/package checks before a normal GitHub push.

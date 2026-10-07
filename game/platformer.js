@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Add a side-view, four-player platformer version with double jumps, platforms, bots, and knockouts.
+// Request: Honor the selected shrink timing and instant match-win rule in Platformer.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -63,7 +63,7 @@
       // Reuse the original countdown, pause, scoring transition, replay, and match completion.
       if(this.phase!=='playing'){super.step(dt,inputs);return;}
       this.elapsed+=dt;
-      const erosion=Math.max(0,this.elapsed-(this.shrinkTime||18));
+      const erosion=this.shrinkTime===999?0:Math.max(0,this.elapsed-this.shrinkTime);
       const previous=new Map(this.platforms.map(s=>[s.id,s]));
       this.platforms=this.mapDefinition.platforms.map(s=>{
         const w=Math.max(0,s.w*(1-erosion/60)),offset=motionOffset(s,this.elapsed),delta=offset-motionOffset(s,this.elapsed-dt),old=previous.get(s.id);
@@ -127,7 +127,7 @@
         if(p.x<-70||p.x>1070||p.y>770||p.y<-170){p.alive=false;p.fall=0;const hitter = (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined; if(hitter !== undefined && hitter !== p.id) this.knockouts[hitter]++; this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: hitter});}
       }
       const alive=this.players.filter(p=>p.alive);
-      if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null)this.scores[this.roundWinner]++;this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
+      if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
     land(p,previousY) {
       let landing=null;
@@ -173,3 +173,5 @@
 // Updated: 2026-09-19 America/New_York. Lines 8,18-24 initialize motion/drop state; 50-59 add bot descent; 67-101 move platforms, carry riders and process Down; 131-148 land relative to moving surfaces. Purpose: custom moving/drop-through stages; upstream: validated maps.js geometry and original engine; environment: browser/Node.
 // Updated: 2026-09-23 America/New_York. Lines 18,71-72 track vertical surface velocity; 133-138 admit catches by rising platforms while preserving upward separation. Purpose: relative-motion landings; upstream: maps.js paths and engine collisions; environment: browser/Node.
 // Updated: 2026-10-03 America/New_York. Lines 148-155 launch from centered pad strips, restore both air jumps and emit feedback. Purpose: automatic jump pads; upstream: maps.js pad bounds and existing landing resolution; environment: browser/Node.
+
+// Updated: 2026-10-07 America/New_York. Changed lines 2, 66, 130: apply permanent Never and immediate-match scoring with existing shared transitions. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
