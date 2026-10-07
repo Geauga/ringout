@@ -9,7 +9,7 @@
     {id:'moving-grounds',name:'Moving Grounds',platforms:[{id:'floor',x:100,y:600,w:800,h:26},{id:'left',x:160,y:420,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:140,period:5}},{id:'right',x:660,y:420,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:-140,period:5}},{id:'top',x:410,y:260,w:180,h:18,dropThrough:true,motion:{axis:'y',distance:60,period:4}}]},
         {id:'spring-yard',name:'Spring Yard',platforms:[{id:'floor',x:100,y:600,w:800,h:26,jumpPad:true},{id:'left',x:140,y:430,w:220,h:18,jumpPad:true},{id:'right',x:640,y:430,w:220,h:18,jumpPad:true},{id:'top',x:400,y:260,w:200,h:18}]},
     {id:'crossroads',name:'Crossroads',platforms:[{id:'floor',x:100,y:600,w:800,h:26},{id:'left',x:140,y:350,w:300,h:18},{id:'right',x:560,y:350,w:300,h:18},{id:'mid',x:400,y:480,w:200,h:18}]},
-    {id:'elevator-shaft',name:'Elevator Shaft',platforms:[{id:'floor',x:300,y:600,w:400,h:26},{id:'lift',x:400,y:450,w:200,h:18,dropThrough:true,motion:{axis:'y',distance:-150,period:6}},{id:'left',x:100,y:250,w:250,h:18},{id:'right',x:650,y:250,w:250,h:18}]},
+    {id:'elevator-shaft',name:'Elevator Shaft',platforms:[{id:'floor',x:290,y:600,w:420,h:26},{id:'lift',x:400,y:450,w:200,h:18,dropThrough:true,motion:{axis:'y',distance:-150,period:6}},{id:'left',x:100,y:250,w:250,h:18},{id:'right',x:650,y:250,w:250,h:18}]},
   ];
   function validate(input){
     if(!input||typeof input!=='object')throw new Error('Provide a map.');
