@@ -39,8 +39,8 @@
       const pads=modes.filter(m=>m.startsWith('gamepad')); if(new Set(pads).size!==pads.length) throw new Error('Each controller can control only one player.');
       this.modes=[...modes]; this.target=target;
     }
-    start() { this.scores=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
-    lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
+    start() { this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
+    lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
     pause() { if(['countdown','playing','roundOver'].includes(this.phase)){this.previousPhase=this.phase;this.phase='paused';return true;} return false; }
     resume() { if(this.phase==='paused'){this.phase=this.previousPhase;return true;} return false; }
     emit(type, data={}) { this.events.push({type,...data}); }
@@ -83,7 +83,7 @@
       }
       for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)this.collide(this.players[i],this.players[j]);
       const eliminated=[];
-      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined});}}
+      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);const hitter = (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined; if(hitter !== undefined && hitter !== p.id) this.knockouts[hitter]++; this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: hitter});}}
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
@@ -105,7 +105,7 @@
         a.damage=Math.min(250,a.damage+4);b.damage=Math.min(250,b.damage+4);a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS};
   else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS});
