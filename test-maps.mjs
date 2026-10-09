@@ -1,5 +1,5 @@
 // test-maps.mjs
-// Request: Verify custom map validation, gameplay, persistence, same-origin editing and server failure behavior.
+// Request: Verify advanced map travel/reachability and existing gameplay, persistence and server behavior.
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,30 @@ import { createWorker } from './src/worker.mjs';
 import { openDatabase } from './scripts/local-db.mjs';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const step=(g,seconds)=>{for(let t=0;t<seconds;t+=1/120)g.step(1/120);};
+const advancedIds=new Set(['switchback-citadel','orbital-exchange','spring-circuit','glass-gauntlet']);
+for(const preset of Maps.presets.filter(p=>advancedIds.has(p.id))){
+  const map=Maps.validate(preset);
+  const envelopes=map.platforms.map(p=>{
+    const dx=p.motion?.axis==='x'?p.motion.distance:0,dy=p.motion?.axis==='y'?p.motion.distance:0;
+    return{...p,left:p.x+Math.min(0,dx),right:p.x+p.w+Math.max(0,dx),top:p.y+Math.min(0,dy),bottom:p.y+Math.max(0,dy)};
+  });
+  for(let i=0;i<envelopes.length;i++)for(let j=i+1;j<envelopes.length;j++){
+    const a=envelopes[i],b=envelopes[j];
+    if(a.left<b.right&&b.left<a.right)assert(Math.max(a.top-b.bottom,b.top-a.bottom)>=60,`${map.name}: ${a.id}/${b.id} leave room throughout independent movement cycles`);
+  }
+  const floor=map.platforms[0],spawns=Maps.spawns(map);
+  for(const p of spawns)assert(p.x-21>=floor.x&&p.x+21<=floor.x+floor.w,`${map.name}: safe floor start`);
+  for(let i=1;i<spawns.length;i++)assert(spawns[i].x-spawns[i-1].x>=42,`${map.name}: separate fighter starts`);
+  const engine=new Platformer.PlatformerEngine();engine.setMap(map);engine.configure(['keyboard','keyboard','keyboard','keyboard'],1,999);engine.start();step(engine,3.05);
+  for(let sample=0;sample<32;sample++){
+    step(engine,.25);
+    assert.equal(engine.phase,'playing',`${map.name}: idle starts stay safe`);
+    assert.doesNotThrow(()=>Maps.validate({name:map.name,platforms:engine.platforms.map(p=>({...p,x:Math.round(p.x),y:Math.round(p.y),motion:null}))}),`${map.name}: connected routes at ${engine.elapsed.toFixed(2)} seconds`);
+    assert(engine.players.every(p=>p.alive&&p.support==='floor'),`${map.name}: moving ledges do not disturb starts`);
+  }
+  assert.deepEqual(engine.mapDefinition,map,'movement does not alter editable source geometry');
+}
+console.log('PASS: advanced-map full travel spacing, four separated safe starts and reachable routes across actual motion cycles');
 for(const preset of Maps.presets){
   const map=Maps.validate(preset);
   for(let seed=1;seed<=5;seed++){
@@ -65,3 +89,4 @@ DB.close();console.log('PASS: map API same-origin checks, bounded input, create/
 // Purpose: Real simulation and SQLite-backed custom map checks. Upstream: map definitions, engine, Worker and migrations. Environment: Node 24. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-10-03 America/New_York. Lines 32,46,52,56 verify jump-pad API validation, save and restart persistence. Purpose: protect stored feature data; upstream: maps API and shared schema; environment: Node 24/SQLite.
 // Updated: 2026-10-04 America/New_York. Lines 2,39,61 remove obsolete authentication fixtures; 63-64 exercise visible storage failure handling and describe current API checks. Purpose: map regression coverage; upstream: worker/maps-api and local SQLite; environment: Node 24 built-ins.
+// Updated: 2026-10-09 America/New_York. Changed lines 2,12-35: check advanced presets for full independent travel clearance, safe separated starts and reachable routes using actual moving-platform snapshots. Purpose: validate complex maps beyond their initial pose; upstream: maps.js definitions and platformer.js simulation; environment: Node 24/SQLite.

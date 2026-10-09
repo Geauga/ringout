@@ -1,5 +1,5 @@
 // maps.js
-// Request: Define editable platformer maps and validate them in both browser and server.
+// Request: Add advanced platformer presets while preserving editable maps and shared validation.
 (function(root){
   'use strict';
   const presets=[
@@ -10,6 +10,44 @@
         {id:'spring-yard',name:'Spring Yard',platforms:[{id:'floor',x:100,y:600,w:800,h:26,jumpPad:true},{id:'left',x:140,y:430,w:220,h:18,jumpPad:true},{id:'right',x:640,y:430,w:220,h:18,jumpPad:true},{id:'top',x:400,y:260,w:200,h:18}]},
     {id:'crossroads',name:'Crossroads',platforms:[{id:'floor',x:100,y:600,w:800,h:26},{id:'left',x:140,y:350,w:300,h:18},{id:'right',x:560,y:350,w:300,h:18},{id:'mid',x:400,y:480,w:200,h:18}]},
     {id:'elevator-shaft',name:'Elevator Shaft',platforms:[{id:'floor',x:290,y:600,w:420,h:26},{id:'lift',x:400,y:450,w:200,h:18,dropThrough:true,motion:{axis:'y',distance:-150,period:6}},{id:'left',x:100,y:250,w:250,h:18},{id:'right',x:650,y:250,w:250,h:18}]},
+    {id:'switchback-citadel',name:'Switchback Citadel',platforms:[
+      {id:'floor',x:240,y:620,w:520,h:26},
+      {id:'left-entry',x:60,y:480,w:170,h:18,dropThrough:true},{id:'right-entry',x:770,y:480,w:170,h:18,dropThrough:true},
+      {id:'left-wall',x:180,y:350,w:170,h:18,jumpPad:true},{id:'right-wall',x:650,y:350,w:170,h:18,jumpPad:true},
+      {id:'left-tower',x:80,y:220,w:200,h:18,dropThrough:true},{id:'right-tower',x:720,y:220,w:200,h:18,dropThrough:true},
+      {id:'courtyard-lift',x:400,y:490,w:200,h:18,dropThrough:true,motion:{axis:'y',distance:-110,period:6}},
+      {id:'upper-bridge',x:400,y:290,w:200,h:18,dropThrough:true},{id:'crown',x:380,y:160,w:240,h:18},
+    ]},
+    {id:'orbital-exchange',name:'Orbital Exchange',platforms:[
+      {id:'floor',x:160,y:620,w:680,h:26},
+      {id:'left-ferry',x:100,y:490,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:120,period:6}},
+      {id:'right-ferry',x:720,y:490,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:-120,period:7}},
+      {id:'spring-shuttle',x:410,y:390,w:180,h:18,jumpPad:true,dropThrough:true,motion:{axis:'x',distance:120,period:4.5}},
+      {id:'left-dock',x:60,y:310,w:200,h:18,dropThrough:true},{id:'right-dock',x:740,y:310,w:200,h:18,dropThrough:true},
+      {id:'left-orbit',x:220,y:200,w:120,h:18,dropThrough:true,motion:{axis:'x',distance:70,period:5}},
+      {id:'right-orbit',x:660,y:200,w:120,h:18,dropThrough:true,motion:{axis:'x',distance:-70,period:8}},
+      {id:'summit',x:420,y:160,w:160,h:18},
+    ]},
+    {id:'spring-circuit',name:'Spring Circuit',platforms:[
+      {id:'floor',x:80,y:620,w:840,h:26},
+      {id:'left-launch',x:80,y:520,w:160,h:18,jumpPad:true},{id:'right-launch',x:760,y:520,w:160,h:18,jumpPad:true},
+      {id:'left-link',x:270,y:440,w:140,h:18,dropThrough:true},{id:'right-link',x:590,y:440,w:140,h:18,dropThrough:true},
+      {id:'left-spring',x:100,y:350,w:160,h:18,jumpPad:true},{id:'right-spring',x:740,y:350,w:160,h:18,jumpPad:true},
+      {id:'crossing',x:400,y:350,w:200,h:18,dropThrough:true},
+      {id:'left-elevator',x:270,y:270,w:140,h:18,dropThrough:true,motion:{axis:'y',distance:-60,period:5}},
+      {id:'right-elevator',x:590,y:270,w:140,h:18,dropThrough:true,motion:{axis:'y',distance:-60,period:6}},
+      {id:'left-finish',x:100,y:160,w:160,h:18},{id:'right-finish',x:740,y:160,w:160,h:18},
+    ]},
+    {id:'glass-gauntlet',name:'Glass Gauntlet',platforms:[
+      {id:'floor',x:290,y:620,w:420,h:26},
+      {id:'left-slider',x:140,y:490,w:130,h:18,dropThrough:true,motion:{axis:'x',distance:100,period:5}},
+      {id:'right-slider',x:730,y:490,w:130,h:18,dropThrough:true,motion:{axis:'x',distance:-100,period:7}},
+      {id:'checkpoint',x:440,y:490,w:120,h:18,dropThrough:true},
+      {id:'left-spring',x:320,y:360,w:100,h:18,jumpPad:true},{id:'right-spring',x:580,y:360,w:100,h:18,jumpPad:true},
+      {id:'left-detour',x:60,y:300,w:140,h:18,dropThrough:true},{id:'right-detour',x:800,y:300,w:140,h:18,dropThrough:true},
+      {id:'spire-lift',x:440,y:240,w:120,h:18,dropThrough:true,motion:{axis:'y',distance:-70,period:4}},
+      {id:'left-spire',x:260,y:150,w:100,h:18},{id:'right-spire',x:640,y:150,w:100,h:18},
+    ]},
   ];
   function validate(input){
     if(!input||typeof input!=='object')throw new Error('Provide a map.');
@@ -58,3 +96,4 @@
 // Purpose: Safe, reachable custom stages. Upstream: original High Ground geometry and custom-map request. Environment: browser, Node and bundled Workers. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-09-18 America/New_York. Added Moving Grounds and validated optional dropThrough/motion fields while preserving legacy map defaults; main floors remain stationary and solid. Final line ranges recorded in the work log.
 // Updated: 2026-10-03 America/New_York. Lines 10,23,33,52-53 add Spring Yard, validate optional jumpPad with legacy false default, and share centered pad bounds. Purpose: editable jump pads; upstream: custom-map geometry; environment: browser/Node/Workers.
+// Updated: 2026-10-09 America/New_York. Changed lines 2,13-50: add four advanced presets with alternate routes, 9-12 platforms, moving ledges and jump pads. Purpose: more complex ready-made stages; upstream: existing presets, motion/pad physics and custom-map validation; environment: browser/Node 24/Workers.
