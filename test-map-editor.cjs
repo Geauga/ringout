@@ -1,5 +1,5 @@
 // test-map-editor.cjs
-// Request: Regress editor focus and saved-map reloads without losing drafts or using stale revisions.
+// Request: Preserve successful map writes and current reloads when older library responses arrive later.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
@@ -133,9 +133,78 @@ function harness(fetch=async()=>({ok:true,json:async()=>({maps:[]})})){
     assert.equal(lib.writes.at(-1).route,dirty?'/api/maps':'/api/maps/'+lib.id);
   }
   console.log('PASS: late library responses defer reconciliation until reopening and preserve concurrent edits');
+  function racingLibrary(initialPending=false){
+    const id='01234567-89ab-cdef-0123-456789abcdef',clone=value=>JSON.parse(JSON.stringify(value));
+    let records=[{...Maps.validate(Maps.presets[0]),id,revision:1}],copies=0,deferNext=initialPending;
+    const pending=[];
+    const response=maps=>({ok:true,json:async()=>({maps:clone(maps)})});
+    const ui=harness(async(route,options)=>{
+      if(!options.method){
+        const snapshot=clone(records);
+        if(deferNext){deferNext=false;return new Promise(resolve=>pending.push({respond:()=>resolve(response(snapshot)),fail:()=>resolve({ok:false,json:async()=>({error:'Delayed list failed.'})})}));}
+        return response(snapshot);
+      }
+      const input=JSON.parse(options.body);
+      if(route==='/api/maps'){
+        const map={...Maps.validate(input.map),id:'11111111-2222-3333-4444-'+String(++copies).padStart(12,'0'),revision:1};
+        records.push(map);return{ok:true,json:async()=>({map:clone(map)})};
+      }
+      const index=records.findIndex(map=>route==='/api/maps/'+map.id);
+      if(index<0||records[index].revision!==input.revision)return{ok:false,json:async()=>({error:'Revision conflict.'})};
+      if(input.action==='delete'){records.splice(index,1);return{ok:true,json:async()=>({deleted:true})};}
+      records[index]={...Maps.validate(input.map),id,revision:input.revision+1};
+      return{ok:true,json:async()=>({map:clone(records[index])})};
+    });
+    return{ui,id,pending,read:()=>clone(records),defer(){deferNext=true;},update(){records[0]={...records[0],name:'Newer library result',revision:records[0].revision+1};}};
+  }
+  for(const action of ['create','update','copy','delete']){
+    const lib=racingLibrary(action==='create'),ui=lib.ui;
+    let loading;
+    if(action==='create'){loading=ui.editor.list();ui.click('new-map');}
+    else{await ui.editor.selectById(lib.id);lib.defer();loading=ui.click('map-reload');ui.click('edit-map');}
+    if(action==='delete')await ui.click('confirm-delete-map');
+    else{ui.get('map-name').value='Saved '+action;ui.get('map-name').dispatch('input');await ui.click(action==='copy'?'copy-map':'save-map');}
+    const selected=ui.read();
+    lib.pending[0].respond();await loading;
+    const listed=Array.from(await ui.editor.list()).filter(map=>map.revision);
+    assert.equal(JSON.stringify(listed),JSON.stringify(lib.read()),action+': delayed pre-write response must not undo the library mutation or omit other maps');
+    assert.equal(ui.read().id,selected.id,action+': preserve the selected map');
+    ui.click('close-map-editor');ui.click('edit-map');
+    assert.equal(ui.read().id,selected.id,action+': reopening must preserve selection');
+    if(action!=='delete')assert.equal(ui.get('map-name').value,'Saved '+action,'reopen the saved draft');
+    assert.equal(ui.get('map-reload').disabled,false,'reload becomes available after the current request completes');
+  }
+  console.log('PASS: delayed initial/reload snapshots preserve new saves, updates, copies, deletions and the complete library');
+  for(const order of ['old-first','new-first']){
+    const lib=racingLibrary(),ui=lib.ui;await ui.editor.selectById(lib.id);
+    lib.defer();const oldLoad=ui.click('map-reload');lib.update();
+    // Returning to the lobby can enable the reload button while an earlier read is pending.
+    ui.editor.setLocked(true);ui.editor.setLocked(false);
+    lib.defer();const newLoad=ui.click('map-reload');
+    if(order==='old-first'){
+      lib.pending[0].respond();await oldLoad;
+      assert.equal(ui.get('map-reload').disabled,true,'an older request cannot unlock the newer pending reload');
+      lib.pending[1].respond();await newLoad;
+    }else{lib.pending[1].respond();await newLoad;lib.pending[0].respond();await oldLoad;}
+    const latest=Array.from(await ui.editor.list()).find(map=>map.id===lib.id);
+    assert.equal(latest.revision,2,'the latest initiated reload owns the library');
+    assert.equal(ui.read().revision,2,'the selected map does not regress to an older response');
+    assert.equal(ui.get('map-reload').disabled,false);
+  }
+  const failed=racingLibrary(),failedUI=failed.ui;await failedUI.editor.selectById(failed.id);
+  failed.defer();const failedLoad=failedUI.click('map-reload');failedUI.click('edit-map');
+  failedUI.get('map-name').value='Saved after pending read';failedUI.get('map-name').dispatch('input');await failedUI.click('save-map');
+  const savedStatus=failedUI.get('map-status').textContent;
+  failed.pending[0].fail();await failedLoad;
+  assert.equal(failedUI.get('map-status').textContent,savedStatus,'an obsolete read failure must not overwrite a successful-save status');
+  assert.equal(Array.from(await failedUI.editor.list()).find(map=>map.id===failed.id).revision,2);
+  console.log('PASS: overlapping reloads retain the newest result/button state and stale failures preserve successful-save status');
+
 })().catch(error=>{console.error(error);process.exitCode=1;});
 // Purpose: Regress data loss when a board pointer action synchronously blurs an editor field.
 // Upstream: map-editor.js authors validated maps; maps.js supplies presets and geometry rules.
 // Environment: Node built-ins with a synchronous focus/blur DOM harness. Generated: 2026-09-23 America/New_York. New file: all lines.
 // Updated: 2026-10-03 America/New_York. Lines 68-73 cover independent floor/ledge pad toggles and draft use. Purpose: editor feature regression; upstream: map-editor.js and maps.js; environment: Node VM DOM harness.
 // Updated: 2026-10-05 America/New_York. Lines 2,9,16,28,31 allow controlled asynchronous API events; 75-135 verify current revisions/geometry, conflict recovery, dirty copies, remote deletion and late reloads during editing. Purpose: prevent stale writes and draft loss; upstream: real map-editor.js and validation with a simulated revision API; environment: Node 24 VM DOM/fetch harness.
+
+// Updated: 2026-10-10 America/New_York. Changed lines 2,136-201: delayed snapshot coverage for initial saves, updates, copies, deletions, overlapping reads and obsolete read failures. Purpose: protect completed writes and current library state; upstream: actual map-editor.js callbacks and existing DOM harness; environment: Node 24 built-ins.

@@ -1,11 +1,12 @@
 // map-editor.js
-// Request: Refresh stale saved-map revisions while preserving unsaved edits as separate drafts.
+// Request: Keep successful map writes and current library reloads safe from delayed responses.
 (function(root){
   'use strict';
   const clone=value=>JSON.parse(JSON.stringify(value));
   root.RingoutMapEditor={create({onSelect,isLobby}){
     const $=id=>document.getElementById(id),dialog=$('map-dialog'),board=$('map-board');
     let saved=[],selected=clone(RingoutMaps.presets[0]),draft=null,platformId='floor',drag=null,locked=false,busy=false;
+    let libraryWrites=0,libraryLoads=0;
     const presets=RingoutMaps.presets;
     const status=(message)=>{$('map-status').textContent=message;};
     async function api(path,body){
@@ -44,14 +45,18 @@
       return preserved;
     }
     async function load(){
+      const request=++libraryLoads,writes=libraryWrites;
       $('map-reload').disabled=true;status('Loading saved maps…');
       try{
-        const maps=(await api('/api/maps')).maps,previous=saved;saved=maps;
+        const maps=(await api('/api/maps')).maps;
+        if(request!==libraryLoads)return;
+        if(writes!==libraryWrites)return load();
+        const previous=saved;saved=maps;
         const preserved=refreshCurrentMap(previous);
         refreshPicker();status(preserved?'Library reloaded. Your edits were kept as an unsaved draft; reopen the editor to save a separate copy.':saved.length?`${saved.length} saved map${saved.length===1?'':'s'} · shared in this game`:'Build a map of your own.');
       }
-      catch(error){console.error('Map library load failed:',error);status(error.message);}
-      finally{$('map-reload').disabled=locked;}
+      catch(error){console.error('Map library load failed:',error);if(request===libraryLoads&&writes===libraryWrites)status(error.message);}
+      finally{if(request===libraryLoads)$('map-reload').disabled=locked;}
     }
     function choose(map){
       if(!isLobby())throw new Error('Return to the lobby before changing maps.');
@@ -136,7 +141,7 @@
       try{
         const updating=draft.revision&&!copy;
         const result=await api(updating?'/api/maps/'+draft.id:'/api/maps',{map,revision:updating?draft.revision:undefined});
-        draft=clone(result.map);saved=saved.filter(m=>m.id!==draft.id);saved.unshift(clone(draft));
+        libraryWrites++;draft=clone(result.map);saved=saved.filter(m=>m.id!==draft.id);saved.unshift(clone(draft));
         selected=clone(draft);onSelect(selected);refreshPicker();status(`Saved “${draft.name}”.`);$('editor-status').textContent='Saved. This map is selected for your next match.';
       }catch(error){console.error('Map save failed:',error);$('editor-status').textContent=error.message;}
       finally{setBusy(false);}
@@ -183,7 +188,7 @@
     $('delete-map').addEventListener('click',()=>{$('delete-confirm').hidden=false;});$('cancel-delete-map').addEventListener('click',()=>{$('delete-confirm').hidden=true;});
     $('confirm-delete-map').addEventListener('click',async()=>{
       if(busy||!draft.revision)return;setBusy(true);
-      try{await api('/api/maps/'+draft.id,{action:'delete',revision:draft.revision});saved=saved.filter(m=>m.id!==draft.id);draft=null;dialog.close();choose(presets[0]);status('Map deleted. High Ground is selected.');}
+      try{await api('/api/maps/'+draft.id,{action:'delete',revision:draft.revision});libraryWrites++;saved=saved.filter(m=>m.id!==draft.id);draft=null;dialog.close();choose(presets[0]);status('Map deleted. High Ground is selected.');}
       catch(error){console.error('Map delete failed:',error);$('editor-status').textContent=error.message;}
       finally{busy=false;$('map-fields').disabled=false;$('close-map-editor').disabled=false;if(draft)render();}
     });
@@ -196,3 +201,5 @@
 // Updated: 2026-09-23 America/New_York. Lines 136-140 commit focused fields before changing platform selection and drag origin. Purpose: prevent cross-platform edits; upstream: editor focus/blur handlers; environment: browser.
 // Updated: 2026-10-03 America/New_York. Lines 51,75,78,128 add the independent jump-pad toggle, accessible label and centered marker. Purpose: author saved jump pads; upstream: maps.js validation and map API; environment: browser.
 // Updated: 2026-10-05 America/New_York. Lines 2,27-54 reconcile reloaded saved revisions, refresh unchanged drafts and preserve dirty/deleted-map edits as new drafts; 109,112 defer open-dialog reconciliation until reopening and explain separate-copy saves. Purpose: conflict recovery without losing edits; upstream: maps-api.mjs revisions and maps.js validation; environment: browser DOM/fetch.
+
+// Updated: 2026-10-10 America/New_York. Changed lines 2,9,47-60,144,191: track successful writes and active reads, refresh stale pre-write lists, ignore superseded results/status and let only the current read unlock reload. Purpose: preserve saved maps and library state across asynchronous responses; upstream: existing editor/API callbacks and test-map-editor.cjs regressions; environment: browser DOM/fetch and Node 24 tests.
