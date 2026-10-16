@@ -1,5 +1,5 @@
 // game.js
-// Request: Show selected house rules and preserve knockout counters during replay playback.
+// Request: Add synchronized color swatches and hex fields for each player, preserving colors across modes and replays.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -18,9 +18,29 @@
   let last=performance.now(),accumulator=0,visualTime=0,shake=0,soundEnabled=false,audioContext=null,announcementUntil=0,padSignature='',hudSignature='',touch={x:0,y:0,dash:false,jump:false},helpWasRunning=false,lastCount='',lastPadCheck=0;
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pads=()=>Array.from(navigator.getGamepads?.()||[]).filter(p=>p&&p.connected&&p.mapping==='standard'&&p.index<4);
+  function syncPlayerColor(id){
+    const color=engine.players[id].color;
+    $('row-'+id).style.setProperty('--player',color);
+    $('skin-desc-'+id).textContent=engine.customColors[id]?'Custom color '+color.toUpperCase():PLAYER_SKINS[engine.skins[id]].description;
+    $('color-'+id).value=color;$('hex-'+id).value=color.toUpperCase();
+    $('hex-'+id).setAttribute('aria-invalid','false');$('color-error-'+id).textContent='';
+  }
+  function choosePlayerColor(id,value){
+    if(engine.phase!=='lobby'||replayPlayer)return;
+    try{engine.setColor(id,value);}catch(error){$('hex-'+id).setAttribute('aria-invalid','true');$('color-error-'+id).textContent=error.message;return;}
+    syncPlayerColor(id);hudSignature='';updateUI();
+  }
   function setupUI(){
-    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${skin.color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; height: 1.2em;">${skin.description}</div><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
-    for(let i=0;i<4;i++){$(`player-${i}`).value=engine.modes[i];$(`player-${i}`).addEventListener('change',configure);$(`skin-${i}`).addEventListener('change',(e)=>{engine.setSkin(i, parseInt(e.target.value, 10));$(`row-${i}`).style.setProperty('--player', PLAYER_SKINS[engine.skins[i]].color);$(`skin-desc-${i}`).textContent = PLAYER_SKINS[engine.skins[i]].description;hudSignature='';updateUI();});}
+    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${engine.players[i].color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; min-height: 1.2em;">${skin.description}</div><div class="player-color-controls"><label for="hex-${i}">Hex</label><input id="color-${i}" type="color" aria-label="Player ${i+1} color picker"><input id="hex-${i}" type="text" maxlength="7" placeholder="#RRGGBB" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} hex color" aria-describedby="color-error-${i}"></div><span id="color-error-${i}" class="color-error" role="status"></span><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
+    for(let i=0;i<4;i++){
+      $('player-'+i).value=engine.modes[i];$('player-'+i).addEventListener('change',configure);
+      $('skin-'+i).addEventListener('change',e=>{engine.setSkin(i,parseInt(e.target.value,10));syncPlayerColor(i);hudSignature='';updateUI();});
+      for(const event of ['input','change']){
+        $('hex-'+i).addEventListener(event,()=>choosePlayerColor(i,$('hex-'+i).value));
+        $('color-'+i).addEventListener(event,()=>choosePlayerColor(i,$('color-'+i).value));
+      }
+      syncPlayerColor(i);
+    }
     $('win-target').addEventListener('change',configure);
       $('shrink-time').addEventListener('change',configure);
       $('last-standing').addEventListener('change',configure);
@@ -33,6 +53,7 @@
     if(!['arena','platformer'].includes(mode))throw new Error('Choose arena or platformer.');
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
     engine.skins.forEach((skin,id)=>next.setSkin(id,skin));
+    engine.customColors.forEach((color,id)=>{if(color)next.setColor(id,color);});
     if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
@@ -72,7 +93,7 @@
     const engine=view();
     $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':''}${!p.alive ? 'OUT' : ' &bull; ' + engine.knockouts[i] + ' KOs'}</span></div>`).join('');
   }
-  function lockSetup(locked){for(let i=0;i<4;i++){$(`player-${i}`).disabled=locked;$(`skin-${i}`).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
+  function lockSetup(locked){for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -303,3 +324,7 @@
 // Updated: 2026-10-05 America/New_York. Lines 2,112 treat replay playback as locked setup even when the live engine is in the lobby. Purpose: preserve assignments and pause playback on controller loss; upstream: replay.js playback and existing controller discovery; environment: browser gamepad API.
 
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 54-69, 138-142: derive instructions/countdown from actual rules and include recorded knockout counters in HUD refresh. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
+
+// Updated: 2026-10-11 America/New_York. Changed lines 2,21-32,34-43,56,96,327-328. Changes: player color helpers and lobby markup/events synchronize validated swatches/hex fields and clear errors; mode changes copy overrides; setup locks both controls through matches/replays. Purpose: accessible independent player color choice; upstream: engine.js setColor and existing score/render/replay behavior; environment: browser DOM/Canvas.
+
+// Updated: 2026-10-15 America/New_York. Changed line 34: let player descriptions wrap without overlapping color controls. Purpose: readable narrow-screen chooser; upstream: existing lobby color markup; environment: browser DOM/CSS.

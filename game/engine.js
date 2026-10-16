@@ -1,5 +1,5 @@
 // engine.js
-// Request: Honor selected house rules and attribute recent collision knockouts to the attacker.
+// Request: Add validated per-player custom hex colors that persist through rounds and lobby resets.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -18,18 +18,27 @@
   const NAMES = SKINS.map(s => s.name);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.customColors = [null, null, null, null]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
       this.players = [0, 1, 2, 3].map(id => {
         const angle = -Math.PI * .75 + id * Math.PI * .5;
         const skin = SKINS[this.skins[id]] || SKINS[id];
-        return { id, name:skin.name, color:skin.color, skinIndex: this.skins[id], x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
+        return { id, name:skin.name, color:this.customColors[id]||skin.color, skinIndex: this.skins[id], x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
       });
     }
     setSkin(id, skinIndex) {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing skins.');
       this.skins[id] = skinIndex % SKINS.length;
+      this.customColors[id] = null;
+      this.makeRound();
+    }
+    setColor(id, hex) {
+      if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing colors.');
+      if(!Number.isInteger(id)||id<0||id>3) throw new Error('Choose a player from 1 to 4.');
+      const value=typeof hex==='string'?hex.trim():'';
+      if(!/^#?[0-9a-f]{6}$/i.test(value)) throw new Error('Use six hex digits, for example #12AB34.');
+      this.customColors[id]='#'+value.replace(/^#/,'').toLowerCase();
       this.makeRound();
     }
     configure(modes, target, shrinkTime=18, lastStanding='round') {
@@ -108,7 +117,7 @@
         a.damage=Math.min(250,a.damage+4);b.damage=Math.min(250,b.damage+4);a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],modes:[...this.modes],skins:[...this.skins],players:this.players.map(({id,name,alive,damage,x,y,cooldown})=>({id,name,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],modes:[...this.modes],skins:[...this.skins],customColors:[...this.customColors],players:this.players.map(({id,name,color,alive,damage,x,y,cooldown})=>({id,name,color,alive,damage,x,y,cooldown}))};}
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS};
   else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS});
@@ -116,3 +125,5 @@
 // Purpose: Deterministic-step game logic independent of rendering. Upstream: original user game request; no previous implementation. Environment: browser or Node.js for simulation validation. Generated: 2026-09-11 America/New_York. New file: all lines.
 
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 21, 35-43, 72-73, 103-112: initialize/store/validate house rules, keep Never disabled, retain rules in snapshots and record dash/bump attacker timestamps. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
+
+// Updated: 2026-10-11 America/New_York. Changed lines 2,21,27,33-41,120,128-129. Changes: constructor/makeRound retain four custom colors; setSkin resets its override; setColor validates lobby/player/full hex atomically; snapshot copies overrides and player colors. Purpose: independent custom fighter colors; upstream: preset skins and existing round lifecycle; environment: browser / Node 24.

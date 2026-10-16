@@ -2,7 +2,7 @@
 
 A local four-player arena game. Dash into other fighters to knock them off the platform. The last fighter standing wins the round; the first to the selected number of wins takes the match.
 
-Choose **Arena** for the original top-down game, or **Platformer** for the side-view version. Switch modes in the lobby; your player assignments, selected skins, and round-win target are preserved. Select skins before starting; skin choices stay locked until you return to the lobby.
+Choose **Arena** for the original top-down game, or **Platformer** for the side-view version. Switch modes in the lobby; your player assignments, selected skins, and round-win target are preserved. Select skins before starting; skin choices stay locked until you return to the lobby. Each player also has a color swatch and Hex field: enter six hex digits such as #12AB34, with or without #. Invalid entries keep the last valid color. Custom colors remain across rounds, lobby resets and mode changes, and replays retain their recorded colors. Selecting a preset skin restores its color. Both color controls lock during matches and replays.
 
 House Rules apply in both modes: start shrinking after 10, 18, or 30 seconds, or choose **Never** to keep the stage intact. Choose whether the last survivor wins one round or the whole match. The choices stay selected when switching modes. Knockouts credit the most recent damaging collision within six seconds; later falls receive no attacker credit. Counters reset for each new match, and replays show the recorded counters and rules.
 

@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Honor the selected shrink timing and instant match-win rule in Platformer.
+// Request: Include actual custom player colors in Platformer snapshots.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -163,7 +163,7 @@
       if(bHits){a.vy=Math.min(a.vy,-290-a.damage*.7);a.hitStun=.24;a.grounded=false;a.support=null;}
     }
     snapshot() {
-      return {...super.snapshot(),gameMode:'platformer',mapName:this.mapDefinition.name,platforms:this.platforms.map(s=>({...s})),players:this.players.map(({id,name,alive,damage,x,y,vx,vy,cooldown,grounded,jumps})=>({id,name,alive,damage,x,y,vx,vy,cooldown,grounded,jumps}))};
+      return {...super.snapshot(),gameMode:'platformer',mapName:this.mapDefinition.name,platforms:this.platforms.map(s=>({...s})),players:this.players.map(({id,name,color,alive,damage,x,y,vx,vy,cooldown,grounded,jumps})=>({id,name,color,alive,damage,x,y,vx,vy,cooldown,grounded,jumps}))};
     }
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={PlatformerEngine};else root.PlatformerEngine=PlatformerEngine;
@@ -175,3 +175,5 @@
 // Updated: 2026-10-03 America/New_York. Lines 148-155 launch from centered pad strips, restore both air jumps and emit feedback. Purpose: automatic jump pads; upstream: maps.js pad bounds and existing landing resolution; environment: browser/Node.
 
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 66, 130: apply permanent Never and immediate-match scoring with existing shared transitions. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
+
+// Updated: 2026-10-11 America/New_York. Changed lines 2,166,178-179. Change: snapshot includes each fighter color; custom overrides remain inherited from ArenaEngine. Purpose: consistent colors across both modes and state reads; upstream: engine.js custom-color storage; environment: browser / Node 24.

@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Regress selected rules, credited knockout scores and replay playback alongside existing controls.
+// Request: Verify custom hex controls alongside rules, replays and existing browser controls.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -30,11 +30,11 @@ function browserHarness(mode, map = Maps.presets[0]) {
   function element(id = '') {
     const select = id.startsWith('player-') || id.startsWith('skin-') || ['win-target','shrink-time','last-standing'].includes(id);
     return eventTarget({
-      id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : 'BUTTON',
+      id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : /^(hex|color)-/.test(id) ? 'INPUT' : 'BUTTON', attributes: {},
       value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
-      setAttribute() {},
+      setAttribute(name,value) { this.attributes[name]=String(value); },
       setPointerCapture() {},
       getBoundingClientRect() { return { left: 0, top: 0, width: 1000, height: 720 }; },
       getContext() {
@@ -243,3 +243,44 @@ for(const mode of ['arena','platformer']){
 // Updated: 2026-10-05 America/New_York. Lines 2,195-211 verify both lobby replay modes preserve live state, pause on disconnect, stay paused after reconnect and block starting with a missing controller. Purpose: behavioral disconnect regression; upstream: real game.js/replay handlers; environment: Node 24 simulated DOM/gamepad API.
 
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 30-33, 213-237: supply real rule-select defaults and exercise both modes, rule retention, HUD/announcements and counter-bearing replay. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
+
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);ui.configure(['keyboard','keyboard','keyboard','keyboard']);
+  const colors=['#123abc','#abcdef','#112233','#fedcba'];
+  colors.forEach((color,id)=>{
+    ui.get('hex-'+id).value=color.toUpperCase();ui.get('hex-'+id).dispatch('input');
+    assert.equal(ui.snapshot().players[id].color,color);
+    assert.equal(ui.get('color-'+id).value,color);assert.equal(ui.get('hex-'+id).value,color.toUpperCase());
+    assert.equal(ui.get('row-'+id).style['--player'],color);assert(ui.get('scoreboard').innerHTML.includes(color));
+  });
+  const valid=JSON.stringify(ui.snapshot());ui.get('hex-0').value='#XYZ123';ui.get('hex-0').dispatch('input');
+  assert.equal(JSON.stringify(ui.snapshot()),valid,'invalid input retains the last valid fighter color');
+  assert.equal(ui.get('hex-0').attributes['aria-invalid'],'true');assert.match(ui.get('color-error-0').textContent,/six hex/);
+  ui.get('color-0').value='#00aaff';ui.get('color-0').dispatch('input');colors[0]='#00aaff';
+  assert.equal(ui.get('hex-0').value,'#00AAFF');assert.equal(ui.get('hex-0').attributes['aria-invalid'],'false');
+  assert.equal(ui.get('color-error-0').textContent,'');
+  ui.get('skin-2').value='9';ui.get('skin-2').dispatch('change');
+  assert.equal(ui.snapshot().customColors[2],null);assert.equal(ui.get('color-2').value,SKINS[9].color);
+  ui.get('hex-2').value=colors[2];ui.get('hex-2').dispatch('change');
+  for(const nextMode of ['platformer','arena',mode]){
+    ui.click('mode-'+nextMode);
+    assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors,'mode changes preserve every custom color');
+  }
+  ui.click('start');ui.tick(3.1);
+  for(let id=0;id<4;id++){assert.equal(ui.get('hex-'+id).disabled,true);assert.equal(ui.get('color-'+id).disabled,true);}
+  ui.get('hex-0').value='#654321';ui.get('hex-0').dispatch('input');
+  assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors,'locked controls cannot alter the match');
+  ui.click('reset');assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors);
+  for(let id=0;id<4;id++){assert.equal(ui.get('hex-'+id).disabled,false);assert.equal(ui.get('color-'+id).disabled,false);}
+  ui.click('watch-replay');
+  assert.equal(ui.get('hex-0').disabled,true);assert.equal(ui.get('color-0').disabled,true);
+  assert(ui.get('scoreboard').innerHTML.includes(colors[0]),'replay displays the recorded custom color');
+  ui.get('color-0').value='#654321';ui.get('color-0').dispatch('input');
+  assert.equal(ui.snapshot().players[0].color,colors[0],'replay color input cannot modify live settings');
+  ui.click('exit-replay');ui.get('hex-0').value='#654321';ui.get('hex-0').dispatch('input');
+  ui.click('watch-replay');assert(ui.get('scoreboard').innerHTML.includes(colors[0]),'later lobby edits do not recolor an earlier replay');
+  ui.click('exit-replay');assert(ui.get('scoreboard').innerHTML.includes('#654321'));
+  console.log('PASS:',mode,'hex/picker synchronization, validation feedback, preset reset, mode retention, match/replay locks and recorded colors');
+}
+
+// Updated: 2026-10-11 America/New_York. Changed lines 2,33,37,246-286. Changes: harness models color input focus and ARIA attributes; appended color scenarios follow below. Purpose: verify real chooser handlers and locks; upstream: game.js and both engines; environment: Node 24 simulated browser.
