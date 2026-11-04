@@ -38,6 +38,8 @@ GitHub Actions builds the server and runs the tests on pushes and pull requests.
 
 4: Player 4 uses T/F/G/H and R to dash.
 
+**Bot difficulty:** Select **Easy**, **Normal**, or **Hard** independently for each Bot slot in the lobby. Easy reacts more slowly, moves more gently and attacks less often. Normal keeps the original bot behavior. Hard reacts faster, anticipates rival movement and starts Platformer recovery earlier. Difficulty changes decisions only; fighter speed limits, damage, jumps and dash cooldowns stay the same. Choices carry across modes, rounds and rematches in this tab. Switch back to the lobby to change them; matches and replay playback lock the controls.
+
 Choose Keyboard, Bot, or a connected controller for each slot before starting. By default, Player 1 uses the keyboard and the other slots are bots. A standard controller uses the left stick or D-pad and its primary A / cross button. Press a controller button to let the browser discover it. Each controller can occupy one slot. Keyboards may limit simultaneous keys; separate controllers avoid this hardware limit. Touch controls support Player 1 when assigned to Keyboard.
 
 Dash follows movement direction; when standing still, it follows the last movement direction. Dash recharges in 1.25 seconds. Hits increase damage and subsequent knockback. The platform shrinks after 18 seconds. Simultaneous final eliminations are a draw and award no points.

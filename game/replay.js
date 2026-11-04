@@ -1,12 +1,12 @@
 // replay.js
-// Request: Capture damage/assist totals, knock counters, custom names and portal discontinuities in isolated replay frames.
+// Request: Retain isolated bot difficulty settings alongside recorded combat statistics and portals.
 (function(root){
   'use strict';
   const copy=value=>JSON.parse(JSON.stringify(value));
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const active=new Set(['countdown','playing','roundOver']);
   function capture(engine,gameMode){
-    return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...(engine.assists||[0,0,0,0])],damageDealt:[...(engine.damageDealt||[0,0,0,0])],knocks:[...(engine.knocks||[0,0,0,0])],customNames:[...(engine.customNames||[null,null,null,null])],players:engine.players.map(p=>{
+    return {gameMode,botDifficulties:[...(engine.botDifficulties||['normal','normal','normal','normal'])],phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...(engine.assists||[0,0,0,0])],damageDealt:[...(engine.damageDealt||[0,0,0,0])],knocks:[...(engine.knocks||[0,0,0,0])],customNames:[...(engine.customNames||[null,null,null,null])],players:engine.players.map(p=>{
       const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps','portalTrips'])if(p[key]!==undefined)out[key]=p[key];return out;
     }),platforms:engine.platforms?copy(engine.platforms):[]};
   }
@@ -62,3 +62,5 @@
 
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 10, 50. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
 // Updated: 2026-11-03 America/New_York. Added knocks and customNames capture in replay frames.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 9. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.

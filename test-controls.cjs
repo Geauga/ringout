@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Verify live/replay scoreboard totals, ranking, custom hex controls, name selector safety checks, and knock counters alongside existing browser controls.
+// Request: Verify bot difficulty controls alongside existing browser input, scoreboard, name and replay behavior.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -28,7 +28,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id.startsWith('skin-') || id.startsWith('name-select-') || ['win-target','shrink-time','last-standing'].includes(id);
+    const select = id.startsWith('player-') || id.startsWith('difficulty-') || id.startsWith('skin-') || id.startsWith('name-select-') || ['win-target','shrink-time','last-standing'].includes(id);
     return eventTarget({
       id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : /^(hex|color|name)-/.test(id) ? 'INPUT' : 'BUTTON', attributes: {},
       value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
@@ -322,3 +322,29 @@ for(const mode of ['arena','platformer']){
   console.log('PASS:',mode,'scoreboard ranking/ties, eliminated-player totals, stat-only updates, replay seeking/isolation and final/new-match displays');
 }
 // Updated: 2026-11-03 America/New_York. Changed line 2 and added lines 288-310: verify rank priorities/ties, eliminated/stat-only updates, final/reset displays and recorded totals during seeking. Purpose: real scoreboard handler regressions; upstream: game.js browser glue and both engines; environment: Node 24 VM/DOM harness.
+
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode),levels=['easy','hard','normal','easy'];
+  assert.equal(ui.get('difficulty-row-0').hidden,true);assert.equal(ui.get('difficulty-0').disabled,true);
+  ui.configure(['bot','bot','keyboard','bot']);
+  levels.forEach((level,i)=>{ui.get('difficulty-'+i).value=level;ui.get('difficulty-'+i).dispatch('change');});
+  assert.deepEqual(Array.from(ui.snapshot().botDifficulties),levels);
+  assert.equal(ui.get('difficulty-row-1').hidden,false);assert.equal(ui.get('difficulty-row-2').hidden,true);
+  const before=JSON.stringify(ui.snapshot());ui.get('difficulty-0').value='impossible';ui.get('difficulty-0').dispatch('change');
+  assert.equal(JSON.stringify(ui.snapshot()),before);assert.equal(ui.get('difficulty-0').value,'easy');
+  for(const next of ['platformer','arena']){ui.click('mode-'+next);assert.deepEqual(Array.from(ui.snapshot().botDifficulties),levels);}
+  ui.configure(['keyboard','bot','keyboard','bot']);assert.equal(ui.get('difficulty-row-0').hidden,true);
+  ui.configure(['bot','bot','keyboard','bot']);assert.equal(ui.get('difficulty-0').value,'easy');
+  ui.tools.get('configure_match').execute({modes:['bot','bot','keyboard','bot'],target:1,botDifficulties:['hard','easy','normal','hard']});
+  assert.equal(ui.get('difficulty-0').value,'hard');assert.deepEqual(Array.from(ui.snapshot().botDifficulties),['hard','easy','normal','hard']);
+  ui.click('start');assert.equal(ui.get('difficulty-0').disabled,true);
+  const locked=JSON.stringify(ui.snapshot().botDifficulties);ui.get('difficulty-0').value='easy';ui.get('difficulty-0').dispatch('change');
+  assert.equal(JSON.stringify(ui.snapshot().botDifficulties),locked);assert.equal(ui.get('difficulty-0').value,'hard');
+  ui.tick(.5);ui.click('reset');assert.equal(ui.get('difficulty-0').disabled,false);
+  ui.click('watch-replay');assert.equal(ui.get('difficulty-0').disabled,true);
+  ui.get('difficulty-0').value='easy';ui.get('difficulty-0').dispatch('change');assert.equal(JSON.stringify(ui.snapshot().botDifficulties),locked);
+  ui.click('exit-replay');assert.equal(ui.get('difficulty-0').disabled,false);
+  console.log('PASS:',mode,'per-slot difficulty controls, bot-only visibility, mode/control retention, atomic rejection, WebMCP configuration and match/replay locks');
+}
+
+// Updated: 2026-11-04 America/New_York. Changed lines 31, 325-348. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.

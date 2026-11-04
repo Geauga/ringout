@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Preserve momentum portals and shared damage/assist scoring in Platformer.
+// Request: Apply per-slot bot difficulties to Platformer pursuit, jumping, recovery and attacks.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -26,15 +26,16 @@
       }));
     }
     bot(p,dt) {
+      const skill=this.botProfile(p.id);
       p.aiTime-=dt;p.aiJumpDelay=Math.max(0,p.aiJumpDelay-dt);
       if(p.aiTime<=0){
-        p.aiTime=.10+this.random()*.09;
+        p.aiTime=skill.reaction+.01+this.random()*skill.jitter;
         const rivals=this.players.filter(q=>q.alive&&q.id!==p.id);
         const target=rivals.sort((a,b)=>(Math.abs(a.x-p.x)+Math.abs(a.y-p.y)*1.5)-(Math.abs(b.x-p.x)+Math.abs(b.y-p.y)*1.5))[0];
         const floor=this.platforms.find(s=>s.id==='floor');
         const center=floor.x+floor.w/2;
         const support=this.platforms.find(s=>s.id===p.support&&s.w>0);
-        let goal=target?.x??center;
+        let goal=target?target.x+target.vx*skill.lead:center;
         // Recover toward the surviving floor before pursuing a rival beyond its edge.
         const offFloor=!floor||p.x<floor.x+20||p.x>floor.x+floor.w-20;
         if(offFloor||p.y>floor.y)goal=center;
@@ -43,18 +44,18 @@
           const next=above.sort((a,b)=>Math.abs(a.x+a.w/2-target.x)-Math.abs(b.x+b.w/2-target.x))[0];
           if(next)goal=next.x+next.w/2;
         }
-        p.aiX=Math.abs(goal-p.x)<12?0:Math.sign(goal-p.x);
+        p.aiX=Math.abs(goal-p.x)<12?0:Math.sign(goal-p.x)*skill.control;
         const approachingEdge=support&&(p.aiX<0?p.x<support.x+50:p.aiX>0&&p.x>support.x+support.w-50);
-        const recover=!p.grounded&&p.jumps<2&&(p.y>floor.y-60||offFloor)&&p.vy>30;
+        const recover=!p.grounded&&p.jumps<2&&(p.y>floor.y-skill.recovery||offFloor)&&p.vy>30;
         const climb=target&&target.y<p.y-65&&(p.grounded||(p.jumps===1&&p.vy>-60));
-        const dodge=p.grounded&&target&&Math.abs(target.x-p.x)<135&&this.random()<.15;
+        const dodge=p.grounded&&target&&Math.abs(target.x-p.x)<135&&this.random()<skill.dodge;
         p.aiDrop=!!(p.grounded&&support?.dropThrough&&target&&target.y>p.y+65&&Math.abs(target.x-p.x)<support.w/2);
         p.aiJump=!p.aiDrop&&p.aiJumpDelay<=0&&(recover||climb||approachingEdge||dodge);
-        if(p.aiJump)p.aiJumpDelay=.23;
+        if(p.aiJump)p.aiJumpDelay=skill.jumpDelay;
         const dx=target?target.x-p.x:0,dy=target?Math.abs(target.y-p.y):Infinity;
         const inward=dx*(center-p.x)>0;
-        p.aiDash=!!target&&Math.abs(dx)<130&&dy<48&&(!offFloor||inward)&&p.y<floor.y+30&&this.random()>.15;
-        if(p.aiDash)p.aiX=Math.sign(dx)||p.fx;
+        p.aiDash=!!target&&Math.abs(dx)<130&&dy<48&&(!offFloor||inward)&&p.y<floor.y+30&&this.random()>1-(this.botDifficulties[p.id]==='normal'?.85:skill.dashChance);
+        if(p.aiDash)p.aiX=(Math.sign(dx)||p.fx)*skill.control;
       }
       const input={x:p.aiX,jump:p.aiJump,dash:p.aiDash,drop:p.aiDrop};
       p.aiJump=false;p.aiDash=false;p.aiDrop=false;return input;
@@ -203,3 +204,5 @@
 
 
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 25, 80, 124, 135-153. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 29, 32, 38, 47, 49, 51, 54, 57-58. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.

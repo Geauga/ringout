@@ -1,5 +1,5 @@
 // engine.js
-// Request: Track match damage dealt, assists, knock counters, and validated fighter names alongside custom hex colors.
+// Request: Add independent Easy/Normal/Hard bot decisions while preserving existing fighter stats and scoring.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -27,8 +27,13 @@
     return BLOCKED_WORDS.some(w => raw.includes(w) || unleet.includes(w) || squashedRaw.includes(w) || squashedUnleet.includes(w));
   };
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const BOT_PROFILES = {
+    easy: {reaction:.30,jitter:.16,control:.65,dashChance:.35,lead:0,arenaMargin:95,recovery:30,jumpDelay:.40,dodge:.05},
+    normal: {reaction:.09,jitter:.09,control:1,dashChance:.75,lead:0,arenaMargin:75,recovery:60,jumpDelay:.23,dodge:.15},
+    hard: {reaction:.045,jitter:.035,control:1,dashChance:.95,lead:.12,arenaMargin:90,recovery:100,jumpDelay:.12,dodge:.35},
+  };
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.customColors = [null, null, null, null]; this.customNames = [null, null, null, null]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.assists = [0, 0, 0, 0]; this.damageDealt = [0, 0, 0, 0]; this.knocks = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.botDifficulties = ['normal', 'normal', 'normal', 'normal']; this.skins = [0, 1, 2, 3]; this.customColors = [null, null, null, null]; this.customNames = [null, null, null, null]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.assists = [0, 0, 0, 0]; this.damageDealt = [0, 0, 0, 0]; this.knocks = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
       this.players = [0, 1, 2, 3].map(id => {
@@ -68,15 +73,18 @@
       this.customNames[id] = null;
       this.makeRound();
     }
-    configure(modes, target, shrinkTime=18, lastStanding='round') {
+    configure(modes, target, shrinkTime=18, lastStanding='round', botDifficulties=this.botDifficulties) {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing players.');
       if(!Array.isArray(modes) || modes.length!==4 || !modes.every(m=>m==='bot'||m==='keyboard'||/^gamepad[0-3]$/.test(m))) throw new Error('Choose four valid player controls.');
       if(![1,3,5].includes(target)) throw new Error('Round win target must be 1, 3, or 5.');
       if(![10,18,30,999].includes(shrinkTime)) throw new Error('Shrink time must be 10, 18, 30 seconds, or Never.');
       if(!['round','match'].includes(lastStanding)) throw new Error('Last one standing must win the round or match.');
+      if(!Array.isArray(botDifficulties)||botDifficulties.length!==4||!Array.from(botDifficulties).every(level=>typeof level==='string'&&Object.hasOwn(BOT_PROFILES,level)))throw new Error('Choose Easy, Normal or Hard for each of the four bot slots.');
       const pads=modes.filter(m=>m.startsWith('gamepad')); if(new Set(pads).size!==pads.length) throw new Error('Each controller can control only one player.');
       this.modes=[...modes]; this.target=target; this.shrinkTime=shrinkTime; this.lastStanding=lastStanding;
+      this.botDifficulties=[...botDifficulties];
     }
+    botProfile(id) { return BOT_PROFILES[this.botDifficulties[id]]; }
     start() { this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.assists=[0,0,0,0];this.damageDealt=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
     lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.assists=[0,0,0,0];this.damageDealt=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
     pause() { if(['countdown','playing','roundOver'].includes(this.phase)){this.previousPhase=this.phase;this.phase='paused';return true;} return false; }
@@ -102,13 +110,14 @@
       this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy:hitter,assistIds});
     }
     bot(p, dt) {
+      const skill=this.botProfile(p.id);
       p.aiTime-=dt;
       if(p.aiTime<=0){
-        p.aiTime=.09+this.random()*.09;
+        p.aiTime=skill.reaction+this.random()*skill.jitter;
         const rivals=this.players.filter(q=>q.alive&&q.id!==p.id).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));
         const q=rivals[0];let x=500-p.x,y=354-p.y;
-        if(q){const d=Math.hypot(q.x-p.x,q.y-p.y);const edge=Math.hypot(p.x-500,p.y-354);if(edge<this.radius-75){x=q.x-p.x+(500-q.x)*.15;y=q.y-p.y+(354-q.y)*.15;}p.aiDash=d<130&&d>34&&edge<this.radius-52&&this.random()>.25;}
-        const len=Math.hypot(x,y)||1;p.aiX=x/len;p.aiY=y/len;
+        if(q){const d=Math.hypot(q.x-p.x,q.y-p.y);const edge=Math.hypot(p.x-500,p.y-354);if(edge<this.radius-skill.arenaMargin){x=q.x+q.vx*skill.lead-p.x+(500-q.x)*.15;y=q.y+q.vy*skill.lead-p.y+(354-q.y)*.15;}p.aiDash=d<130&&d>34&&edge<this.radius-52&&this.random()>1-skill.dashChance;}
+        const len=Math.hypot(x,y)||1;p.aiX=x/len*skill.control;p.aiY=y/len*skill.control;
       }
       const input={x:p.aiX,y:p.aiY,dash:p.aiDash};p.aiDash=false;return input;
     }
@@ -166,7 +175,7 @@
         a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],assists:[...this.assists],damageDealt:[...this.damageDealt],knocks:[...this.knocks],modes:[...this.modes],skins:[...this.skins],customColors:[...this.customColors],customNames:[...this.customNames],players:this.players.map(({id,name,color,alive,damage,x,y,cooldown})=>({id,name,color,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],assists:[...this.assists],damageDealt:[...this.damageDealt],knocks:[...this.knocks],modes:[...this.modes],botDifficulties:[...this.botDifficulties],skins:[...this.skins],customColors:[...this.customColors],customNames:[...this.customNames],players:this.players.map(({id,name,color,alive,damage,x,y,cooldown})=>({id,name,color,alive,damage,x,y,cooldown}))};}
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS,PRESET_NAMES};
   else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS,PLAYER_PRESET_NAMES:PRESET_NAMES});
@@ -178,3 +187,5 @@
 // Updated: 2026-10-11 America/New_York. Changed lines 2,21,27,33-41,120,128-129. Changes: constructor/makeRound retain four custom colors; setSkin resets its override; setColor validates lobby/player/full hex atomically; snapshot copies overrides and player colors. Purpose: independent custom fighter colors; upstream: preset skins and existing round lifecycle; environment: browser / Node 24.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,21,27,53-54,59-76,115,130-138: add match damage/assist totals, actual capped damage accounting, recent-hit contributors, shared elimination credit and isolated snapshots. Purpose: combat scoreboard scoring; upstream: existing collisions, KO attribution and match lifecycle; environment: browser / Node 24.
 // Updated: 2026-11-03 America/New_York. Added PRESET_NAMES, safety checks, setName/resetName, and knock counter tracking.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 30-34, 36, 76, 82, 85, 87, 113, 116, 119-120, 178. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
