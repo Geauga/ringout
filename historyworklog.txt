@@ -23,3 +23,6 @@ Major Changes:
 2026-10-03 20:12:50 - Removed PIN authentication completely from the game. Deleted auth files and updated scripts/build.mjs, server.cjs, start.cmd, and package.ps1 to serve the game as a standard local static application.
 2026-10-04 17:05:26 - Attributed knockouts to players: Updated engine.js to track 'lastHitBy' logic, and updated game.js to explicitly announce who knocked out a player.
 2026-10-05 17:06:04 - Made House Rules 'Arena shrinks' and 'Last one standing' customizable with dropdowns in index.html, updating engine.js, game.js, and platformer.js to use them.
+
+2026-11-03 21:26:05 - Added per-player knock counter tracking dash and bump hits alongside KOs across ArenaEngine, PlatformerEngine, replay frames, scoreboard HUD, and match-over screen. Added lobby fighter name selector with preset names, custom name text input, and safety validation (length limits, character whitelist, profanity/leetspeak filter, and duplicate name prevention) with regression tests in test-colors.cjs and test-controls.cjs.
+2026-11-03 21:27:10 - Committed and pushed knock counter and fighter name selector with safety checks to GitHub (origin/main).

@@ -1,9 +1,9 @@
 // test-controls.cjs
-// Request: Verify custom hex controls alongside rules, replays and existing browser controls.
+// Request: Verify custom hex controls, name selector safety checks, and knock counters alongside rules, replays and existing browser controls.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { ArenaEngine, COLORS, NAMES , SKINS} = require('./game/engine.js');
+const { ArenaEngine, COLORS, NAMES, SKINS, PRESET_NAMES } = require('./game/engine.js');
 const { PlatformerEngine } = require('./game/platformer.js');
 const Maps = require('./game/maps.js');
 const RingoutReplay = require('./game/replay.js');
@@ -28,9 +28,9 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id.startsWith('skin-') || ['win-target','shrink-time','last-standing'].includes(id);
+    const select = id.startsWith('player-') || id.startsWith('skin-') || id.startsWith('name-select-') || ['win-target','shrink-time','last-standing'].includes(id);
     return eventTarget({
-      id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : /^(hex|color)-/.test(id) ? 'INPUT' : 'BUTTON', attributes: {},
+      id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : /^(hex|color|name)-/.test(id) ? 'INPUT' : 'BUTTON', attributes: {},
       value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
@@ -68,7 +68,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
     document, window, navigator: { getGamepads: () => connected },
     performance: { now: () => now }, matchMedia: () => ({ matches: false }), devicePixelRatio: 1,
     requestAnimationFrame: callback => { frame = callback; }, AbortController, console,
-    ArenaEngine: ObservedArena, PlatformerEngine: ObservedPlatformer, RingoutReplay, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES,
+    ArenaEngine: ObservedArena, PlatformerEngine: ObservedPlatformer, RingoutReplay, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES, PLAYER_PRESET_NAMES: PRESET_NAMES,
     RingoutMaps: { ...Maps, presets: [map] },
   }, { filename: 'game/game.js' });
   const snapshot = () => tools.get('read_match_state').execute();
@@ -221,29 +221,19 @@ for(const mode of ['arena','platformer']){
   assert.equal(ui.get('arena-note').textContent,'SHRINKS IN 30 SEC');
   const [a,b]=ui.engine.players,y=mode==='platformer'?519:354;
   Object.assign(a,{x:480,y,vx:900,vy:0,dashTime:.1});Object.assign(b,{x:510,y,vx:0,vy:0});ui.engine.collide(a,b);
-  b.x=2000;ui.tick(.02);assert.equal(ui.snapshot().knockouts[0],1);
-  assert.match(ui.get('announcement').textContent,/CORAL KNOCKED OUT BLUE/);assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);
+  b.x=2000;ui.tick(.02);assert.equal(ui.snapshot().knockouts[0],1);assert.equal(ui.snapshot().knocks[0],1);
+  assert.match(ui.get('announcement').textContent,/CORAL KNOCKED OUT BLUE/);assert.match(ui.get('scoreboard').innerHTML,/1 KNOCKS/);assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);
   ui.engine.players.slice(2).forEach(p=>{p.x=2000;});ui.tick(3);
   assert.equal(ui.snapshot().phase,'matchOver');assert.equal(ui.snapshot().scores[0],5);
+  assert.match(ui.get('overlay-description').textContent,/1 knocks · 1 KOs/);
   ui.click('watch-replay');assert.equal(ui.snapshot().replay.watching,true);ui.tick(.1);
   ui.get('replay-seek').value=ui.get('replay-seek').max;ui.get('replay-seek').dispatch('input');ui.tick(.01);
-  assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);ui.click('exit-replay');ui.click('reset');
+  assert.match(ui.get('scoreboard').innerHTML,/1 KNOCKS/);assert.match(ui.get('scoreboard').innerHTML,/1 KOs/);ui.click('exit-replay');ui.click('reset');
   ui.get('shrink-time').value='999';ui.get('shrink-time').dispatch('change');
   assert.match(ui.get('help-description').textContent,/Shrinking is disabled/);ui.click('start');ui.tick(3.1);ui.engine.elapsed=1100;ui.tick(.02);
   assert.equal(ui.get('arena-note').textContent,'SHRINKING OFF');assert.equal(ui.engine.shrinking,false);
-  console.log(`PASS: ${mode} rule controls/mode retention, dynamic instructions, knockout announcement/HUD and replay counters`);
+  console.log(`PASS: ${mode} rule controls/mode retention, dynamic instructions, knock/knockout announcement/HUD and replay counters`);
 }
-// Purpose: Exercise real game.js event handlers and engines without changing production code or requiring browser hardware.
-// Upstream: game/game.js connects browser input to game/engine.js and game/platformer.js simulations.
-// Environment: Node 24 built-ins with a simulated DOM, animation clock and gamepad API. Generated: 2026-09-17 America/New_York. New file: all lines.
-// Updated: 2026-09-19 America/New_York. Lines 8-13,36-37,69-70,82 observe the real platformer engine and supply custom maps; 127-146 verify Down input for four keyboard layouts, controller stick/D-pad and touch. Purpose/upstream/environment remain as documented above.
-// Updated: 2026-10-04 America/New_York. Changed lines 9-16,75-90,176-193: observe both engines and exercise real replay handlers, setup/input isolation, slider end, seek/speed, completion and lobby restoration. Purpose: integrated replay regressions; upstream: game.js/replay.js; environment: Node VM with simulated DOM.
-// Updated: 2026-10-05 America/New_York. Line 185 checks incoming house-rule locks during replay. Purpose: merge regression; upstream: real game.js; environment: Node VM.
-// Updated: 2026-10-04 America/New_York. Lines 2,29,32 model skin selects/styles; 127-153 verify immediate scores, mode preservation and countdown/play/pause/lobby locking. Purpose: skin/control regressions; upstream: real game.js handlers and both engines; environment: Node 24 VM DOM harness.
-// Updated: 2026-10-05 America/New_York. Lines 2,195-211 verify both lobby replay modes preserve live state, pause on disconnect, stay paused after reconnect and block starting with a missing controller. Purpose: behavioral disconnect regression; upstream: real game.js/replay handlers; environment: Node 24 simulated DOM/gamepad API.
-
-// Updated: 2026-10-07 America/New_York. Changed lines 2, 30-33, 213-237: supply real rule-select defaults and exercise both modes, rule retention, HUD/announcements and counter-bearing replay. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
-
 for(const mode of ['arena','platformer']){
   const ui=browserHarness(mode);ui.configure(['keyboard','keyboard','keyboard','keyboard']);
   const colors=['#123abc','#abcdef','#112233','#fedcba'];
@@ -262,25 +252,51 @@ for(const mode of ['arena','platformer']){
   ui.get('skin-2').value='9';ui.get('skin-2').dispatch('change');
   assert.equal(ui.snapshot().customColors[2],null);assert.equal(ui.get('color-2').value,SKINS[9].color);
   ui.get('hex-2').value=colors[2];ui.get('hex-2').dispatch('change');
+
+  // Verify preset and custom fighter names with safety checks in UI
+  ui.get('name-select-0').value='NOVA';ui.get('name-select-0').dispatch('change');
+  assert.equal(ui.snapshot().players[0].name,'NOVA');assert.equal(ui.get('name-0').value,'NOVA');
+  ui.get('name-1').value='Val_1';ui.get('name-1').dispatch('input');
+  assert.equal(ui.snapshot().players[1].name,'VAL_1');assert.equal(ui.get('name-select-1').value,'custom');
+  ui.get('name-0').value='sh1t';ui.get('name-0').dispatch('input');
+  assert.equal(ui.snapshot().players[0].name,'NOVA','unsafe name rejected without mutating player');
+  assert.equal(ui.get('name-0').attributes['aria-invalid'],'true');assert.match(ui.get('name-error-0').textContent,/family-friendly/);
+  ui.get('name-0').value='VAL_1';ui.get('name-0').dispatch('input');
+  assert.match(ui.get('name-error-0').textContent,/unique/);
+  ui.get('name-select-1').value='';ui.get('name-select-1').dispatch('change');
+  assert.equal(ui.snapshot().players[1].name,SKINS[1].name);
+
   for(const nextMode of ['platformer','arena',mode]){
     ui.click('mode-'+nextMode);
     assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors,'mode changes preserve every custom color');
+    assert.equal(ui.snapshot().players[0].name,'NOVA','mode changes preserve custom names');
   }
   ui.click('start');ui.tick(3.1);
-  for(let id=0;id<4;id++){assert.equal(ui.get('hex-'+id).disabled,true);assert.equal(ui.get('color-'+id).disabled,true);}
+  for(let id=0;id<4;id++){
+    assert.equal(ui.get('hex-'+id).disabled,true);assert.equal(ui.get('color-'+id).disabled,true);
+    assert.equal(ui.get('name-'+id).disabled,true);assert.equal(ui.get('name-select-'+id).disabled,true);
+  }
   ui.get('hex-0').value='#654321';ui.get('hex-0').dispatch('input');
+  ui.get('name-0').value='STORM';ui.get('name-0').dispatch('input');
   assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors,'locked controls cannot alter the match');
+  assert.equal(ui.snapshot().players[0].name,'NOVA');
   ui.click('reset');assert.deepEqual(Array.from(ui.snapshot().players,p=>p.color),colors);
-  for(let id=0;id<4;id++){assert.equal(ui.get('hex-'+id).disabled,false);assert.equal(ui.get('color-'+id).disabled,false);}
+  for(let id=0;id<4;id++){
+    assert.equal(ui.get('hex-'+id).disabled,false);assert.equal(ui.get('color-'+id).disabled,false);
+    assert.equal(ui.get('name-'+id).disabled,false);assert.equal(ui.get('name-select-'+id).disabled,false);
+  }
   ui.click('watch-replay');
   assert.equal(ui.get('hex-0').disabled,true);assert.equal(ui.get('color-0').disabled,true);
+  assert.equal(ui.get('name-0').disabled,true);assert.equal(ui.get('name-select-0').disabled,true);
   assert(ui.get('scoreboard').innerHTML.includes(colors[0]),'replay displays the recorded custom color');
+  assert(ui.get('scoreboard').innerHTML.includes('NOVA'),'replay displays the recorded custom name');
   ui.get('color-0').value='#654321';ui.get('color-0').dispatch('input');
   assert.equal(ui.snapshot().players[0].color,colors[0],'replay color input cannot modify live settings');
   ui.click('exit-replay');ui.get('hex-0').value='#654321';ui.get('hex-0').dispatch('input');
   ui.click('watch-replay');assert(ui.get('scoreboard').innerHTML.includes(colors[0]),'later lobby edits do not recolor an earlier replay');
   ui.click('exit-replay');assert(ui.get('scoreboard').innerHTML.includes('#654321'));
-  console.log('PASS:',mode,'hex/picker synchronization, validation feedback, preset reset, mode retention, match/replay locks and recorded colors');
+  console.log('PASS:',mode,'hex/picker and name selector synchronization, safety feedback, preset reset, mode retention, match/replay locks and recorded state');
 }
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,33,37,246-286. Changes: harness models color input focus and ARIA attributes; appended color scenarios follow below. Purpose: verify real chooser handlers and locks; upstream: game.js and both engines; environment: Node 24 simulated browser.
+// Updated: 2026-11-03 America/New_York. Added name selector, safety check validation, and knock counter UI/replay assertions.
