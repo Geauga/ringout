@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Preserve momentum portals and shared damage/assist scoring in Platformer.
+// Request: Plan reachable bot platform routes, safe airborne landings and portal connections.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -22,39 +22,65 @@
         grounded:true,jumps:0,jumpHeld:false,coyote:.09,jumpBuffer:0,
         support:'floor',prevX:spawns[i].x,prevY:spawns[i].y,hitStun:0,aiJump:false,aiJumpDelay:.3+i*.15,
         dropHeld:false,dropPlatform:null,dropTime:0,carriedBy:null,aiDrop:false,
-        portalCooldown:0,portalTrips:0,
+        portalCooldown:0,portalTrips:0,aiDestination:null,
       }));
+    }
+    botRoute(start,end) {
+      const surfaces=this.platforms.filter(s=>s.w>=50),queue=[[start]],seen=new Set([start.id]);
+      while(queue.length){
+        const path=queue.shift(),a=path.at(-1);if(a.id===end.id)return path;
+        for(const b of surfaces){
+          if(seen.has(b.id))continue;
+          const gap=Math.max(0,a.x-b.x-b.w,b.x-a.x-a.w),rise=a.y-b.y;
+          const portal=a.portal&&b.portal;
+          if(!portal&&(rise>210||gap>180))continue;
+          seen.add(b.id);queue.push([...path,b]);
+        }
+      }
+      return null;
     }
     bot(p,dt) {
       p.aiTime-=dt;p.aiJumpDelay=Math.max(0,p.aiJumpDelay-dt);
       if(p.aiTime<=0){
         p.aiTime=.10+this.random()*.09;
-        const rivals=this.players.filter(q=>q.alive&&q.id!==p.id);
-        const target=rivals.sort((a,b)=>(Math.abs(a.x-p.x)+Math.abs(a.y-p.y)*1.5)-(Math.abs(b.x-p.x)+Math.abs(b.y-p.y)*1.5))[0];
-        const floor=this.platforms.find(s=>s.id==='floor');
-        const center=floor.x+floor.w/2;
-        const support=this.platforms.find(s=>s.id===p.support&&s.w>0);
-        let goal=target?.x??center;
-        // Recover toward the surviving floor before pursuing a rival beyond its edge.
-        const offFloor=!floor||p.x<floor.x+20||p.x>floor.x+floor.w-20;
-        if(offFloor||p.y>floor.y)goal=center;
-        else if(target&&target.y<p.y-75&&support){
-          const above=this.platforms.filter(s=>s.w>40&&s.y<support.y&&s.y>=support.y-290);
-          const next=above.sort((a,b)=>Math.abs(a.x+a.w/2-target.x)-Math.abs(b.x+b.w/2-target.x))[0];
-          if(next)goal=next.x+next.w/2;
+        const surfaces=this.platforms.filter(s=>s.w>=50),floor=this.platforms.find(s=>s.id==='floor');
+        const support=surfaces.find(s=>s.id===p.support),center=s=>s.x+s.w/2;
+        const gap=(s,x)=>Math.max(0,s.x-x,x-s.x-s.w);
+        const target=this.players.filter(q=>q.alive&&q.id!==p.id).sort((a,b)=>Math.abs(a.x-p.x)+Math.abs(a.y-p.y)*1.5-Math.abs(b.x-p.x)-Math.abs(b.y-p.y)*1.5)[0];
+        const targetSurface=surfaces.find(s=>s.id===target?.support)||surfaces.filter(s=>s.y>=(target?.y??p.y)+p.r-4).sort((a,b)=>gap(a,target?.x??p.x)-gap(b,target?.x??p.x)||a.y-b.y)[0];
+        let destination=surfaces.find(s=>s.id===p.aiDestination),portalRoute=false;
+        if(p.grounded&&support){
+          const route=targetSurface?this.botRoute(support,targetSurface):null;
+          destination=route?.[1]||support;
+          portalRoute=!!(route?.[1]&&support.portal&&destination.portal);
+          p.aiDestination=destination.id;
+        }else if(!destination||p.y-p.r>destination.y+45){
+          destination=surfaces.filter(s=>s.y>=p.y+p.r-10).sort((a,b)=>gap(a,p.x+p.vx*.2)-gap(b,p.x+p.vx*.2)||a.y-b.y)[0]||floor;
+          p.aiDestination=destination?.id;
         }
-        p.aiX=Math.abs(goal-p.x)<12?0:Math.sign(goal-p.x);
-        const approachingEdge=support&&(p.aiX<0?p.x<support.x+50:p.aiX>0&&p.x>support.x+support.w-50);
-        const recover=!p.grounded&&p.jumps<2&&(p.y>floor.y-60||offFloor)&&p.vy>30;
-        const climb=target&&target.y<p.y-65&&(p.grounded||(p.jumps===1&&p.vy>-60));
-        const dodge=p.grounded&&target&&Math.abs(target.x-p.x)<135&&this.random()<.15;
-        p.aiDrop=!!(p.grounded&&support?.dropThrough&&target&&target.y>p.y+65&&Math.abs(target.x-p.x)<support.w/2);
-        p.aiJump=!p.aiDrop&&p.aiJumpDelay<=0&&(recover||climb||approachingEdge||dodge);
+        let goal=destination?center(destination):500;
+        if(p.grounded&&support){
+          if(destination?.id===support.id)goal=clamp(target?.x??center(support),support.x+24,support.x+support.w-24);
+          else if(portalRoute)goal=center(support);
+          else goal=clamp(goal,support.x+24,support.x+support.w-24);
+        }
+        const steering=goal-(p.x+p.vx*(p.grounded?.10:.20));
+        p.aiX=Math.abs(steering)<10?0:Math.sign(steering);
+        const next=destination&&destination.id!==support?.id;
+        const rise=destination?destination.y-(p.y+p.r):0;
+        const launch=p.grounded&&support&&next&&!portalRoute&&Math.abs(goal-p.x)<35;
+        const descend=launch&&rise>45;
+        p.aiDrop=!!(descend&&support.dropThrough&&gap(destination,p.x)<20);
+        if(descend&&!p.aiDrop)p.aiX=center(destination)<center(support)?-1:1;
+        const climb=!!destination&&rise<-24&&!p.grounded&&p.jumps<2&&p.vy>-60;
+        const recover=!p.grounded&&p.jumps<2&&p.vy>30&&!!destination&&(gap(destination,p.x)>10||p.y+p.r>destination.y-35);
+        p.aiJump=!p.aiDrop&&p.aiJumpDelay<=0&&((launch&&!descend)||climb||recover);
         if(p.aiJump)p.aiJumpDelay=.23;
         const dx=target?target.x-p.x:0,dy=target?Math.abs(target.y-p.y):Infinity;
-        const inward=dx*(center-p.x)>0;
-        p.aiDash=!!target&&Math.abs(dx)<130&&dy<48&&(!offFloor||inward)&&p.y<floor.y+30&&this.random()>.15;
-        if(p.aiDash)p.aiX=Math.sign(dx)||p.fx;
+        const landing=support||destination;
+        const dashSafe=landing&&p.x+Math.sign(dx)*135>landing.x+15&&p.x+Math.sign(dx)*135<landing.x+landing.w-15;
+        p.aiDash=!!target&&!p.aiDrop&&Math.abs(dx)>5&&Math.abs(dx)<130&&dy<48&&dashSafe&&this.random()>.15;
+        if(p.aiDash)p.aiX=Math.sign(dx);
       }
       const input={x:p.aiX,jump:p.aiJump,dash:p.aiDash,drop:p.aiDrop};
       p.aiJump=false;p.aiDash=false;p.aiDrop=false;return input;
@@ -203,3 +229,5 @@
 
 
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 25, 80, 124, 135-153. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+
+// Updated: 2026-11-04 America/New_York. Changed line 2, round AI destination initialization and lines 28-87: breadth-first live platform/portal routes, reachable intermediate jumps, persistent airborne landing targets, velocity-aware steering, controlled descent and supported-surface dash margins. Purpose: fix bot pathfinding; upstream: existing maps, jump/motion/portal physics and bot controls; environment: browser / Node 24.

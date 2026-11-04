@@ -528,3 +528,11 @@ Actions/files: Normal integration committed as c06ca4bbfaef48292044f93d756237def
 Validation: Exact remote SHA matched c06ca4b; working tree was clean. All fourteen combined suites passed as recorded above. Arena bots now launch in keyboard compass directions with unchanged shared dash speed.
 Execution/platform: Local Windows repository and GitHub main; Geauga identity, no history rewrite, package rebuild or hosted deployment.
 GitHub Timeline: 已 push for c06ca4b, independently verified with git ls-remote. This completion-only record will also be committed/pushed normally; no tested runtime changes.
+
+## 2026-11-04 17:21 America/New_York
+Prompt: "fix bot pathfinding and push".
+Actions: Replaced Platformer one-hop aiming with bounded breadth-first routes over current reachable platforms and portal pairs. Retain airborne landing targets, brake for momentum, pursue across valid outer ledges, control descent and limit offensive dashes to supported landings. Preserve Arena keyboard-aligned dashes. Added a navigation regression and documentation.
+Files: game/platformer.js; test-bot-navigation.cjs; package.json; README.md; REQUIREMENTS.md; 历史工作记录.txt append only. Source provenance footer records purpose/upstream/environment and changed ranges.
+Validation: Confirmed the prior bot fails the initial unreachable-ledge regression; fixed code passes. Actual four-level ascent passes at 30/60/120 Hz with the stationary rival separated from the landing zone to avoid combat interference. Outer-ledge pursuit, airborne recovery, moving/disconnected/eroded routes and portal edges pass. Build 187813 bytes and all fifteen suites passed, including 140 seeded matches. Expected diagnostics retained. No graphical browser or physical-controller session claimed.
+Execution/platform: Local Windows checkout, built-in Node tests and isolated SQLite/HTTP fixtures. GitHub main advanced with bot difficulty settings and mode retention fixes; integrate these normally before pushing. Geauga author/committer retained; no user data, release or hosted Site modification.
+GitHub Timeline: 未 commit at append creation. Preparing feature commit, normal integration with origin/main b7805d1, combined validation and normal push; no force push/history rewrite.
