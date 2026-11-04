@@ -72,6 +72,14 @@ function harness(fetch=async()=>({ok:true,json:async()=>({maps:[]})})){
   pads.get('platform-jump-pad').checked=true;pads.get('platform-jump-pad').dispatch('change');pads.click('play-map');
   assert.equal(pads.read().platforms[0].jumpPad,true);assert.equal(pads.read().platforms[1].jumpPad,true);assert.equal(pads.read().platforms[2].jumpPad,false);
   console.log('PASS: independent floor/ledge jump-pad toggles survive draft play');
+  const portals=harness();await portals.editor.list();portals.click('edit-map');
+  portals.get('platform-portal').checked=true;portals.get('platform-portal').dispatch('change');
+  assert.equal(portals.get('play-map').disabled,true,'unpaired portal blocks play');
+  portals.pointAt('left');assert.equal(portals.get('platform-portal').checked,false);
+  portals.get('platform-portal').checked=true;portals.get('platform-portal').dispatch('change');
+  assert.equal(portals.get('play-map').disabled,false);portals.click('play-map');
+  assert.equal(portals.read().platforms.filter(p=>p.portal).length,2);
+  console.log('PASS: independent portal endpoints validate as a pair and survive draft play');
   function library(){
     const id='01234567-89ab-cdef-0123-456789abcdef',writes=[];
     let records=[{...Maps.validate(Maps.presets[0]),id,revision:1}],copies=0,pendingRead;
@@ -208,3 +216,5 @@ function harness(fetch=async()=>({ok:true,json:async()=>({maps:[]})})){
 // Updated: 2026-10-05 America/New_York. Lines 2,9,16,28,31 allow controlled asynchronous API events; 75-135 verify current revisions/geometry, conflict recovery, dirty copies, remote deletion and late reloads during editing. Purpose: prevent stale writes and draft loss; upstream: real map-editor.js and validation with a simulated revision API; environment: Node 24 VM DOM/fetch harness.
 
 // Updated: 2026-10-10 America/New_York. Changed lines 2,136-201: delayed snapshot coverage for initial saves, updates, copies, deletions, overlapping reads and obsolete read failures. Purpose: protect completed writes and current library state; upstream: actual map-editor.js callbacks and existing DOM harness; environment: Node 24 built-ins.
+
+// Updated: 2026-11-03 America/New_York. Changed lines 75-82. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.

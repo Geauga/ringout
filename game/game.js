@@ -1,5 +1,5 @@
 // game.js
-// Request: Show live damage-dealt scores, assists and a ranked match scoreboard, including replays.
+// Request: Show damage/assist scoreboards and paired-portal feedback in live matches and replays.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -152,6 +152,7 @@
     if(e.type==='dash'){tone(140,.1,'sawtooth',.015);}
     if(e.type==='jump'){tone(e.double?580:410,.1,'triangle',.018);effects.push({x:e.x-12,y:e.y+23,vx:-40,vy:30,life:.25,max:.25,color:engine.players[e.id].color,size:5},{x:e.x+12,y:e.y+23,vx:40,vy:30,life:.25,max:.25,color:engine.players[e.id].color,size:5});}
     if(e.type==='jumpPad'){tone(780,.18,'triangle',.03);for(let i=0;i<8;i++)effects.push({x:e.x+(i-3.5)*7,y:e.y,vx:(i-3.5)*15,vy:-90-Math.random()*60,life:.35,max:.35,color:'#ffd36d',size:4});}
+    if(e.type==='portal'){tone(620,.2,'sine',.03);for(const pos of [{x:e.entryX,y:e.entryY},e])for(let i=0;i<12;i++){const a=i*Math.PI/6;effects.push({x:pos.x,y:pos.y,vx:Math.cos(a)*100,vy:Math.sin(a)*100,life:.35,max:.35,color:'#80dce9',size:4});}}
     if(e.type==='hit'){shake=Math.max(shake,e.power*7);for(let i=0;i<10+e.power*8;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*230;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.2,max:.45,color:'#f0f7c7',size:2+Math.random()*3});}tone(100,.1,'square',.025);}
     if(e.type==='eliminated'){const p=engine.players[e.id];if(e.lastHitBy !== undefined && e.lastHitBy !== null){announce(`${engine.players[e.lastHitBy].name} KNOCKED OUT ${p.name}!`,2);}else{announce(`${p.name} WENT OVER THE EDGE.`,2);}tone(170,.4,'triangle');for(let i=0;i<22;i++){const a=Math.random()*Math.PI*2;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120,life:.7,max:.7,color:p.color,size:3});}}
     if(e.type==='shrink'){announce(platforming()?'THE PLATFORMS ARE SHRINKING. KEEP MOVING.':'THE ARENA IS SHRINKING. KEEP MOVING.',3);tone(260,.35,'triangle');}
@@ -239,6 +240,7 @@
       for(let x=s.x-20;x<s.x+s.w;x+=27){ctx.beginPath();ctx.moveTo(x,s.y+5);ctx.lineTo(x+16,s.y+s.h);ctx.stroke();}ctx.restore();
       ctx.fillStyle='#dcf87b';ctx.fillRect(s.x,s.y-2,5,9);ctx.fillRect(s.x+s.w-5,s.y-2,5,9);
       if(s.jumpPad){const pad=RingoutMaps.padBounds(s);ctx.fillStyle='#ffd36d';ctx.fillRect(pad.x,s.y-5,pad.w,10);ctx.strokeStyle='#513e18';ctx.lineWidth=2;for(let x=pad.x+12;x<pad.x+pad.w;x+=18){ctx.beginPath();ctx.moveTo(x-4,s.y+1);ctx.lineTo(x,s.y-3);ctx.lineTo(x+4,s.y+1);ctx.stroke();}}
+      if(s.portal){const center=RingoutMaps.portalCenter(s),first=engine.platforms.filter(p=>p.portal)[0]?.id===s.id;ctx.save();ctx.strokeStyle=first?'#80dce9':'#ffb36d';ctx.fillStyle=first?'#80dce925':'#ffb36d25';ctx.lineWidth=4;ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=16;ctx.beginPath();ctx.ellipse(center.x,center.y,22,26,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle=ctx.strokeStyle;ctx.textAlign='center';ctx.font='700 12px Arial,sans-serif';ctx.fillText(first?'A':'B',center.x,center.y-34);ctx.restore();}
       if((s.motion||s.dropThrough)&&s.w>35){ctx.fillStyle=s.dropThrough?'#80dce9':'#c4e3f2';ctx.textAlign='center';ctx.font='700 12px Arial,sans-serif';ctx.fillText(`${s.motion?(s.motion.axis==='x'?'↔ ':'↕ '):''}${s.dropThrough?'↓':''}`,s.x+s.w/2,s.y-9);}
     }
     ctx.fillStyle='#667994';ctx.font='600 11px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText('DOUBLE JUMP  ·  DASH  ·  STAY ON',500,115);
@@ -336,3 +338,6 @@
 
 // Updated: 2026-10-15 America/New_York. Changed line 34: let player descriptions wrap without overlapping color controls. Purpose: readable narrow-screen chooser; upstream: existing lobby color markup; environment: browser DOM/CSS.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,94-107,166: render KO/assist HUD and ranked tied/live/final/replay match totals; invalidate rendering on stat/round/phase changes. Purpose: damage scoreboard and assists; upstream: engine.js snapshots and replay.js recorded arrays; environment: browser Canvas/DOM.
+
+
+// Updated: 2026-11-03 America/New_York. Changed lines 148, 236. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.

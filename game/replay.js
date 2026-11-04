@@ -1,5 +1,5 @@
 // replay.js
-// Request: Preserve damage-dealt scores and assists in isolated replay snapshots.
+// Request: Capture damage/assist totals and portal discontinuities in isolated replay frames.
 (function(root){
   'use strict';
   const copy=value=>JSON.parse(JSON.stringify(value));
@@ -7,7 +7,7 @@
   const active=new Set(['countdown','playing','roundOver']);
   function capture(engine,gameMode){
     return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...engine.assists],damageDealt:[...engine.damageDealt],players:engine.players.map(p=>{
-      const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps'])if(p[key]!==undefined)out[key]=p[key];return out;
+      const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps','portalTrips'])if(p[key]!==undefined)out[key]=p[key];return out;
     }),platforms:engine.platforms?copy(engine.platforms):[]};
   }
   class Recorder{
@@ -47,7 +47,7 @@
       if(a!==b&&a.state.round===b.state.round&&a.state.phase===b.state.phase){
         const mix=(x,y)=>x+(y-x)*clamp((this.time-a.time)/(b.time-a.time),0,1);
         state.radius=mix(a.state.radius,b.state.radius);state.elapsed=mix(a.state.elapsed,b.state.elapsed);state.clock=mix(a.state.clock,b.state.clock);
-        for(let i=0;i<state.players.length;i++)if(a.state.players[i].alive===b.state.players[i].alive)for(const key of ['x','y','vx','vy','fall'])state.players[i][key]=mix(a.state.players[i][key],b.state.players[i][key]);
+        for(let i=0;i<state.players.length;i++)if(a.state.players[i].alive===b.state.players[i].alive&&a.state.players[i].portalTrips===b.state.players[i].portalTrips)for(const key of ['x','y','vx','vy','fall'])state.players[i][key]=mix(a.state.players[i][key],b.state.players[i][key]);
         for(let i=0;i<state.platforms.length;i++)for(const key of ['x','y','w'])state.platforms[i][key]=mix(a.state.platforms[i][key],b.state.platforms[i][key]);
       }
       return state;
@@ -59,3 +59,6 @@
 
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 9: copy house rules and per-match knockout counters into each independent recorded frame. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,9: independently capture assist/damage arrays per frame. Purpose: replay scoreboard history without live-state mutation; upstream: shared engine statistics; environment: browser / Node 24.
+
+
+// Updated: 2026-11-03 America/New_York. Changed lines 2, 10, 50. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
