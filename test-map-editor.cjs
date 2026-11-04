@@ -1,5 +1,5 @@
 // test-map-editor.cjs
-// Request: Preserve successful map writes and current reloads when older library responses arrive later.
+// Request: Verify new preset selection and feature-preserving editor remixes alongside existing library behavior.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
@@ -40,6 +40,15 @@ function harness(fetch=async()=>({ok:true,json:async()=>({maps:[]})})){
 }
 
 (async()=>{
+  for(const id of ['rift-relay','bounce-foundry','twin-peaks','conveyor-crossing','spiral-spire','pocket-brawl']){
+    const ui=harness(),preset=Maps.presets.find(p=>p.id===id),original=JSON.stringify(preset);
+    const library=await ui.editor.list();assert(library.some(p=>p.id===id),'new stage appears in the map picker library');
+    await ui.editor.selectById(id);assert.equal(ui.read().id,id);
+    ui.click('edit-map');assert.equal(ui.get('play-map').disabled,false,'preset opens as a valid editor draft');
+    ui.click('play-map');assert.deepEqual(ui.read().platforms,Maps.validate(preset).platforms,'editor preserves every platform feature');
+    assert.equal(JSON.stringify(preset),original,'remixing does not mutate the ready-made stage');
+  }
+  console.log('PASS: six new stages appear in the picker, select by ID and retain geometry/features through editor draft play');
   for(const field of ['platform-x','platform-y','platform-width']){
     const ui=harness();await ui.editor.list();ui.click('edit-map');
     ui.get(field).focus();ui.pointAt('left');
@@ -218,3 +227,5 @@ function harness(fetch=async()=>({ok:true,json:async()=>({maps:[]})})){
 // Updated: 2026-10-10 America/New_York. Changed lines 2,136-201: delayed snapshot coverage for initial saves, updates, copies, deletions, overlapping reads and obsolete read failures. Purpose: protect completed writes and current library state; upstream: actual map-editor.js callbacks and existing DOM harness; environment: Node 24 built-ins.
 
 // Updated: 2026-11-03 America/New_York. Changed lines 75-82. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 43-51. Purpose: six additional editable Platformer stages. Changes: new motion/pad/portal layouts, full-cycle clearance/reachability and bot difficulty coverage, or editor round-trip checks as applicable. Upstream: existing maps.js presets, Platformer simulation and map editor. Environment: browser / Node 24 / Workers.

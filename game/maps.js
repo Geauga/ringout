@@ -1,5 +1,5 @@
 // maps.js
-// Request: Add paired portals, editable endpoints and a ready-made portal stage.
+// Request: Add six distinct ready-made stages using existing motion, pad and portal mechanics.
 (function(root){
   'use strict';
   const presets=[
@@ -56,6 +56,69 @@
     {id:'bridge',x:400,y:420,w:200,h:18,dropThrough:true},
     {id:'summit',x:400,y:160,w:200,h:18},
   ]});
+  presets.push(
+    {id:'rift-relay',name:'Rift Relay',platforms:[
+      {id:'floor',x:140,y:620,w:720,h:26},
+      {id:'entry-gate',x:80,y:480,w:180,h:18,portal:true},
+      {id:'exit-gate',x:740,y:220,w:180,h:18,portal:true},
+      {id:'left-step',x:200,y:350,w:160,h:18,dropThrough:true},
+      {id:'relay-shuttle',x:420,y:480,w:160,h:18,dropThrough:true,motion:{axis:'x',distance:60,period:5}},
+      {id:'right-spring',x:660,y:350,w:160,h:18,jumpPad:true},
+      {id:'left-lookout',x:100,y:220,w:180,h:18,dropThrough:true},
+      {id:'crown',x:400,y:180,w:200,h:18},
+    ]},
+    {id:'bounce-foundry',name:'Bounce Foundry',platforms:[
+      {id:'floor',x:80,y:620,w:840,h:26},
+      {id:'left-launch',x:80,y:500,w:160,h:18,jumpPad:true},
+      {id:'right-launch',x:760,y:500,w:160,h:18,jumpPad:true},
+      {id:'left-link',x:280,y:390,w:160,h:18,dropThrough:true},
+      {id:'right-link',x:560,y:390,w:160,h:18,dropThrough:true},
+      {id:'spring-press',x:410,y:280,w:180,h:18,jumpPad:true,motion:{axis:'y',distance:-70,period:5}},
+      {id:'left-upper',x:80,y:240,w:160,h:18,jumpPad:true},
+      {id:'right-upper',x:760,y:240,w:160,h:18,jumpPad:true},
+      {id:'roof',x:390,y:140,w:220,h:18,dropThrough:true},
+    ]},
+    {id:'twin-peaks',name:'Twin Peaks',platforms:[
+      {id:'floor',x:270,y:620,w:460,h:26},
+      {id:'left-entry',x:130,y:480,w:170,h:18,dropThrough:true},
+      {id:'right-entry',x:700,y:480,w:170,h:18,dropThrough:true},
+      {id:'left-wall',x:80,y:340,w:150,h:18},
+      {id:'right-wall',x:770,y:340,w:150,h:18},
+      {id:'left-peak',x:130,y:200,w:170,h:18},
+      {id:'right-peak',x:700,y:200,w:170,h:18},
+      {id:'valley-lift',x:420,y:480,w:160,h:18,dropThrough:true,motion:{axis:'y',distance:-80,period:6}},
+      {id:'ridge',x:420,y:300,w:160,h:18,dropThrough:true},
+      {id:'left-spring',x:270,y:340,w:120,h:18,jumpPad:true},
+      {id:'right-spring',x:610,y:340,w:120,h:18,jumpPad:true},
+    ]},
+    {id:'conveyor-crossing',name:'Conveyor Crossing',platforms:[
+      {id:'floor',x:100,y:620,w:800,h:26},
+      {id:'left-ferry',x:80,y:490,w:160,h:18,dropThrough:true,motion:{axis:'x',distance:180,period:5}},
+      {id:'right-ferry',x:760,y:490,w:160,h:18,dropThrough:true,motion:{axis:'x',distance:-180,period:7}},
+      {id:'lower-dock',x:440,y:490,w:120,h:18},
+      {id:'upper-dock',x:400,y:350,w:200,h:18,dropThrough:true},
+      {id:'left-slider',x:100,y:220,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:130,period:6}},
+      {id:'right-slider',x:720,y:220,w:180,h:18,dropThrough:true,motion:{axis:'x',distance:-130,period:8}},
+      {id:'finish',x:430,y:140,w:140,h:18},
+    ]},
+    {id:'spiral-spire',name:'Spiral Spire',platforms:[
+      {id:'floor',x:100,y:620,w:800,h:26},
+      {id:'moving-gate',x:100,y:500,w:180,h:18,portal:true,motion:{axis:'x',distance:80,period:5}},
+      {id:'lower-turn',x:330,y:400,w:180,h:18,dropThrough:true},
+      {id:'outer-turn',x:600,y:300,w:180,h:18},
+      {id:'upper-gate',x:710,y:180,w:180,h:18,portal:true},
+      {id:'spire',x:460,y:140,w:180,h:18},
+      {id:'left-perch',x:210,y:220,w:160,h:18,dropThrough:true},
+      {id:'return-path',x:410,y:280,w:140,h:18,dropThrough:true},
+    ]},
+    {id:'pocket-brawl',name:'Pocket Brawl',platforms:[
+      {id:'floor',x:290,y:560,w:420,h:26},
+      {id:'left-wing',x:200,y:410,w:150,h:18,dropThrough:true},
+      {id:'right-wing',x:650,y:410,w:150,h:18,dropThrough:true},
+      {id:'center-spring',x:425,y:280,w:150,h:18,jumpPad:true},
+      {id:'roof',x:330,y:150,w:340,h:18},
+    ]},
+  );
   function validate(input){
     if(!input||typeof input!=='object')throw new Error('Provide a map.');
     const name=typeof input.name==='string'?input.name.trim():'';
@@ -111,3 +174,5 @@
 // Updated: 2026-10-09 America/New_York. Changed lines 2,13-50: add four advanced presets with alternate routes, 9-12 platforms, moving ledges and jump pads. Purpose: more complex ready-made stages; upstream: existing presets, motion/pad physics and custom-map validation; environment: browser/Node 24/Workers.
 
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 52-58, 72-73, 83, 86-87, 104-105. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 2, 59-121. Purpose: six additional editable Platformer stages. Changes: new motion/pad/portal layouts, full-cycle clearance/reachability and bot difficulty coverage, or editor round-trip checks as applicable. Upstream: existing maps.js presets, Platformer simulation and map editor. Environment: browser / Node 24 / Workers.

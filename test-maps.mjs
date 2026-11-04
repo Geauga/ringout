@@ -1,5 +1,5 @@
 // test-maps.mjs
-// Request: Verify advanced map travel/reachability and existing gameplay, persistence and server behavior.
+// Request: Verify full motion routes and all bot difficulties on the expanded preset catalog.
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,10 @@ import { createWorker } from './src/worker.mjs';
 import { openDatabase } from './scripts/local-db.mjs';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const step=(g,seconds)=>{for(let t=0;t<seconds;t+=1/120)g.step(1/120);};
-const advancedIds=new Set(['switchback-citadel','orbital-exchange','spring-circuit','glass-gauntlet']);
+const newMapIds=new Set(['rift-relay','bounce-foundry','twin-peaks','conveyor-crossing','spiral-spire','pocket-brawl']);
+const advancedIds=new Set(['switchback-citadel','orbital-exchange','spring-circuit','glass-gauntlet',...newMapIds]);
+assert.equal(new Set(Maps.presets.map(m=>m.id)).size,Maps.presets.length,'preset IDs remain unique');
+assert.equal(new Set(Maps.presets.map(m=>m.name)).size,Maps.presets.length,'preset names remain distinct');
 for(const preset of Maps.presets.filter(p=>advancedIds.has(p.id))){
   const map=Maps.validate(preset);
   const envelopes=map.platforms.map(p=>{
@@ -33,17 +36,18 @@ for(const preset of Maps.presets.filter(p=>advancedIds.has(p.id))){
   assert.deepEqual(engine.mapDefinition,map,'movement does not alter editable source geometry');
 }
 console.log('PASS: advanced-map full travel spacing, four separated safe starts and reachable routes across actual motion cycles');
+let presetBotMatches=0;
 for(const preset of Maps.presets){
   const map=Maps.validate(preset);
-  for(let seed=1;seed<=5;seed++){
+  for(const difficulty of newMapIds.has(preset.id)?['easy','normal','hard','mixed']:['normal'])for(let seed=1;seed<=5;seed++){
     let state=seed;const engine=new Platformer.PlatformerEngine(()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;});
     engine.setMap(map);assert.equal(engine.snapshot().mapName,map.name);
     const initial=engine.snapshot().platforms;map.platforms[0].x+=1;
     assert.deepEqual(engine.platforms,initial,'engine owns a copy');map.platforms[0].x-=1;
-    engine.configure(['bot','bot','bot','bot'],1);engine.start();
+    engine.configure(['bot','bot','bot','bot'],1,18,'round',difficulty==='mixed'?['easy','normal','hard','normal']:Array(4).fill(difficulty));engine.start();
     assert.throws(()=>engine.setMap(map),/lobby/);
     for(let t=0;t<400&&engine.phase!=='matchOver';t+=1/120)engine.step(1/120);
-    assert.equal(engine.phase,'matchOver',preset.name+' bot completion');
+    assert.equal(engine.phase,'matchOver',preset.name+' '+difficulty+' seed '+seed+' bot completion');presetBotMatches++;
     engine.lobby();assert.deepEqual(engine.platforms,initial,'custom map survives replay/lobby');
   }
 }
@@ -55,7 +59,7 @@ invalid={name:'Unreachable',platforms:[clone(Maps.presets[0].platforms[0]),{id:'
 const basic={name:'Single floor',platforms:[{id:'floor',x:40,y:620,w:420,jumpPad:true}]};
 assert.equal(Maps.spawns(Maps.validate(basic)).length,4);
 const erosion=new Platformer.PlatformerEngine();erosion.setMap(basic);erosion.configure(['keyboard','keyboard','keyboard','keyboard'],3);erosion.start();step(erosion,22);assert(erosion.platforms[0].w<420);erosion.lobby();assert.equal(erosion.platforms[0].w,420);
-console.log(`PASS: map constraints, four safe spawns, independent geometry, erosion/reset and ${Maps.presets.length*5} preset bot matches`);
+console.log(`PASS: map constraints, four safe spawns, independent geometry, erosion/reset and ${presetBotMatches} preset bot matches`);
 await mkdir(new URL('.tmp/',import.meta.url),{recursive:true});
 const filename=fileURLToPath(new URL(`.tmp/maps-test-${Date.now()}.sqlite`,import.meta.url));
 const migrations=new URL('drizzle/',import.meta.url);let DB=openDatabase(filename,migrations);
@@ -101,3 +105,5 @@ DB.close();console.log('PASS: map API same-origin checks, bounded input, create/
 // Updated: 2026-10-09 America/New_York. Changed lines 2,12-35: check advanced presets for full independent travel clearance, safe separated starts and reachable routes using actual moving-platform snapshots. Purpose: validate complex maps beyond their initial pose; upstream: maps.js definitions and platformer.js simulation; environment: Node 24/SQLite.
 
 // Updated: 2026-11-03 America/New_York. Changed lines 81-89. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 12-15, 39, 42, 47, 50, 62. Purpose: six additional editable Platformer stages. Changes: new motion/pad/portal layouts, full-cycle clearance/reachability and bot difficulty coverage, or editor round-trip checks as applicable. Upstream: existing maps.js presets, Platformer simulation and map editor. Environment: browser / Node 24 / Workers.
