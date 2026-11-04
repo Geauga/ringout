@@ -1,5 +1,5 @@
 // engine.js
-// Request: Add knock counter and validated fighter name selector with safety checks alongside custom hex colors.
+// Request: Track match damage dealt, assists, knock counters, and validated fighter names alongside custom hex colors.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -28,13 +28,13 @@
   };
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   class ArenaEngine {
-    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.customColors = [null, null, null, null]; this.customNames = [null, null, null, null]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.knocks = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
+    constructor(random = Math.random) { this.random = random; this.target = 3; this.shrinkTime = 18; this.lastStanding = 'round'; this.modes = ['keyboard', 'bot', 'bot', 'bot']; this.skins = [0, 1, 2, 3]; this.customColors = [null, null, null, null]; this.customNames = [null, null, null, null]; this.events = []; this.phase = 'lobby'; this.scores = [0, 0, 0, 0]; this.knockouts = [0, 0, 0, 0]; this.assists = [0, 0, 0, 0]; this.damageDealt = [0, 0, 0, 0]; this.knocks = [0, 0, 0, 0]; this.round = 1; this.makeRound(); this.phase = 'lobby'; }
     makeRound() {
       this.radius = 267; this.elapsed = 0; this.clock = 3; this.shrinking = false; this.roundWinner = null; this.hitPairs = new Map();
       this.players = [0, 1, 2, 3].map(id => {
         const angle = -Math.PI * .75 + id * Math.PI * .5;
         const skin = SKINS[this.skins[id]] || SKINS[id];
-        return { id, name:this.customNames[id]||skin.name, color:this.customColors[id]||skin.color, skinIndex: this.skins[id], x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
+        return { id, name:this.customNames[id]||skin.name, color:this.customColors[id]||skin.color, skinIndex: this.skins[id], x:500+Math.cos(angle)*160, y:354+Math.sin(angle)*160, vx:0, vy:0, r:21, fx:-Math.cos(angle), fy:-Math.sin(angle), alive:true, damage:0, cooldown:0, dashTime:0, dashHeld:false, hit:new Set(), hitContributors:new Map(), fall:0, aiTime:.1+id*.05, aiX:0, aiY:0, aiDash:false };
       });
     }
     setSkin(id, skinIndex) {
@@ -77,12 +77,30 @@
       const pads=modes.filter(m=>m.startsWith('gamepad')); if(new Set(pads).size!==pads.length) throw new Error('Each controller can control only one player.');
       this.modes=[...modes]; this.target=target; this.shrinkTime=shrinkTime; this.lastStanding=lastStanding;
     }
-    start() { this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
-    lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
+    start() { this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.assists=[0,0,0,0];this.damageDealt=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='countdown';this.emit('countdown',{number:3}); }
+    lobby() { this.phase='lobby';this.scores=[0,0,0,0];this.knockouts=[0,0,0,0];this.assists=[0,0,0,0];this.damageDealt=[0,0,0,0];this.knocks=[0,0,0,0];this.round=1;this.events=[];this.makeRound();this.phase='lobby'; }
     pause() { if(['countdown','playing','roundOver'].includes(this.phase)){this.previousPhase=this.phase;this.phase='paused';return true;} return false; }
     resume() { if(this.phase==='paused'){this.phase=this.previousPhase;return true;} return false; }
     emit(type, data={}) { this.events.push({type,...data}); }
     drainEvents() { const out=this.events;this.events=[];return out; }
+    recordHit(attacker,victim,amount) {
+      const before=victim.damage;victim.damage=Math.min(250,before+amount);
+      this.damageDealt[attacker.id]+=victim.damage-before;
+      victim.lastHitBy=attacker.id;victim.lastHitTime=this.elapsed;
+      victim.hitContributors.set(attacker.id,this.elapsed);
+    }
+    eliminatePlayer(p) {
+      if(!p.alive)return;
+      p.alive=false;p.fall=0;
+      const recent=time=>Number.isFinite(time)&&this.elapsed-time>=0&&this.elapsed-time<6;
+      const hitter=Number.isInteger(p.lastHitBy)&&p.lastHitBy>=0&&p.lastHitBy<4&&p.lastHitBy!==p.id&&recent(p.lastHitTime)?p.lastHitBy:undefined;
+      const assistIds=[];
+      if(hitter!==undefined){
+        this.knockouts[hitter]++;
+        for(const [id,time] of p.hitContributors)if(id!==hitter&&id!==p.id&&recent(time)){this.assists[id]++;assistIds.push(id);}
+      }
+      this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy:hitter,assistIds});
+    }
     bot(p, dt) {
       p.aiTime-=dt;
       if(p.aiTime<=0){
@@ -121,7 +139,7 @@
       }
       for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)this.collide(this.players[i],this.players[j]);
       const eliminated=[];
-      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){p.alive=false;p.fall=0;eliminated.push(p.id);const hitter = (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined; if(hitter !== undefined && hitter !== p.id) this.knockouts[hitter]++; this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: hitter});}}
+      for(const p of this.players){if(p.alive&&Math.hypot(p.x-500,p.y-354)>this.radius+p.r*.2){eliminated.push(p.id);this.eliminatePlayer(p);}}
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
     }
@@ -137,18 +155,18 @@
       const key=a.id+':'+b.id;
       const ad=a.dashTime>0&&!a.hit.has(b.id),bd=b.dashTime>0&&!b.hit.has(a.id);
       if(ad||bd){
-        if(ad){a.hit.add(b.id);this.knocks[a.id]++;b.lastHitBy=a.id;b.lastHitTime=this.elapsed;b.damage=Math.min(250,b.damage+22);const force=690*(1+b.damage/150);b.vx+=nx*force;b.vy+=ny*force;a.vx-=nx*75;a.vy-=ny*75;}
-        if(bd){b.hit.add(a.id);this.knocks[b.id]++;a.lastHitBy=b.id;a.lastHitTime=this.elapsed;a.damage=Math.min(250,a.damage+22);const force=690*(1+a.damage/150);a.vx-=nx*force;a.vy-=ny*force;b.vx+=nx*75;b.vy+=ny*75;}
+        if(ad){a.hit.add(b.id);this.knocks[a.id]++;this.recordHit(a,b,22);const force=690*(1+b.damage/150);b.vx+=nx*force;b.vy+=ny*force;a.vx-=nx*75;a.vy-=ny*75;}
+        if(bd){b.hit.add(a.id);this.knocks[b.id]++;this.recordHit(b,a,22);const force=690*(1+a.damage/150);a.vx-=nx*force;a.vy-=ny*force;b.vx+=nx*75;b.vy+=ny*75;}
         this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:1});this.hitPairs.set(key,.3);
       }else if(!this.hitPairs.has(key)&&relative<-30){
         if(aApproach>10)this.knocks[a.id]++;
         if(bApproach>10)this.knocks[b.id]++;
         if(aApproach<=10&&bApproach<=10){this.knocks[a.id]++;this.knocks[b.id]++;}
-        a.lastHitBy=b.id;a.lastHitTime=this.elapsed;b.lastHitBy=a.id;b.lastHitTime=this.elapsed;
-        a.damage=Math.min(250,a.damage+4);b.damage=Math.min(250,a.damage+4);a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
+        this.recordHit(b,a,4);this.recordHit(a,b,4);
+        a.vx-=nx*(95+a.damage*.6);a.vy-=ny*(95+a.damage*.6);b.vx+=nx*(95+b.damage*.6);b.vy+=ny*(95+b.damage*.6);this.emit('hit',{x:(a.x+b.x)/2,y:(a.y+b.y)/2,power:.3});this.hitPairs.set(key,.3);
       }
     }
-    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],knocks:[...this.knocks],modes:[...this.modes],skins:[...this.skins],customColors:[...this.customColors],customNames:[...this.customNames],players:this.players.map(({id,name,color,alive,damage,x,y,cooldown})=>({id,name,color,alive,damage,x,y,cooldown}))};}
+    snapshot(){return {phase:this.phase,round:this.round,target:this.target,shrinkTime:this.shrinkTime,lastStanding:this.lastStanding,elapsed:Math.round(this.elapsed*10)/10,radius:this.radius,scores:[...this.scores],knockouts:[...this.knockouts],assists:[...this.assists],damageDealt:[...this.damageDealt],knocks:[...this.knocks],modes:[...this.modes],skins:[...this.skins],customColors:[...this.customColors],customNames:[...this.customNames],players:this.players.map(({id,name,color,alive,damage,x,y,cooldown})=>({id,name,color,alive,damage,x,y,cooldown}))};}
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={ArenaEngine,COLORS,NAMES,SKINS,PRESET_NAMES};
   else Object.assign(root,{ArenaEngine,PLAYER_COLORS:COLORS,PLAYER_NAMES:NAMES,PLAYER_SKINS:SKINS,PLAYER_PRESET_NAMES:PRESET_NAMES});
@@ -158,5 +176,5 @@
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 21, 35-43, 72-73, 103-112: initialize/store/validate house rules, keep Never disabled, retain rules in snapshots and record dash/bump attacker timestamps. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,21,27,33-41,120,128-129. Changes: constructor/makeRound retain four custom colors; setSkin resets its override; setColor validates lobby/player/full hex atomically; snapshot copies overrides and player colors. Purpose: independent custom fighter colors; upstream: preset skins and existing round lifecycle; environment: browser / Node 24.
-
-// Updated: 2026-11-03 America/New_York. Added PRESET_NAMES, safety checks (length, character whitelist, profanity/leetspeak filter, uniqueness), setName/resetName and per-player knock counter tracking across dash/bump collisions and snapshots.
+// Updated: 2026-11-03 America/New_York. Changed lines 2,21,27,53-54,59-76,115,130-138: add match damage/assist totals, actual capped damage accounting, recent-hit contributors, shared elimination credit and isolated snapshots. Purpose: combat scoreboard scoring; upstream: existing collisions, KO attribution and match lifecycle; environment: browser / Node 24.
+// Updated: 2026-11-03 America/New_York. Added PRESET_NAMES, safety checks, setName/resetName, and knock counter tracking.

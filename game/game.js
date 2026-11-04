@@ -1,5 +1,5 @@
 // game.js
-// Request: Render knock counters, name selector with safety checks, paired portals and feedback.
+// Request: Show damage/assist scoreboards, knock counters, name selector with safety checks, and paired-portal feedback.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
@@ -115,7 +115,14 @@
   }
   function drawScores(){
     const engine=view();
-    $('scoreboard').innerHTML=engine.players.map((p,i)=>{const knocks=engine.knocks?.[i]??0;return `<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="${p.name}, ${engine.scores[i]} round wins, ${knocks} knocks, ${engine.knockouts[i]} knockouts, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'} &bull; ${knocks} KNOCKS &bull; ${engine.knockouts[i]} KOs</span></div>`;}).join('');
+    $('scoreboard').innerHTML=engine.players.map((p,i)=>{const knocks=engine.knocks?.[i]??0;return `<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="Player ${i+1} ${p.name}, ${engine.scores[i]} round wins, ${knocks} knocks, ${engine.knockouts[i]} knockouts, ${engine.assists?.[i]??0} assists, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">P${i+1} ${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span><span class="score-mini-stats">${knocks} KNOCKS · ${engine.knockouts[i]} KOs · ${engine.assists?.[i]??0} A</span></div>`;}).join('');
+    const rows=engine.players.map((p,i)=>({p,wins:engine.scores[i],kos:engine.knockouts[i],assists:engine.assists?.[i]??0,damage:engine.damageDealt?.[i]??0})).sort((a,b)=>b.wins-a.wins||b.kos-a.kos||b.assists-a.assists||b.damage-a.damage||a.p.id-b.p.id);
+    let rank=1;
+    $('match-score-rows').innerHTML=rows.map((row,i)=>{
+      if(i&&['wins','kos','assists','damage'].some(key=>row[key]!==rows[i-1][key]))rank=i+1;
+      return `<tr data-player="${row.p.id}" class="${engine.phase==='matchOver'&&row.wins>=engine.target?'match-winner':''}" style="--player:${row.p.color}"><td class="match-rank">${rank}</td><th scope="row"><span class="score-color" aria-hidden="true"></span><span>P${row.p.id+1} ${row.p.name}</span></th><td>${row.wins}</td><td>${row.kos}</td><td>${row.assists}</td><td>${row.damage}</td></tr>`;
+    }).join('');
+    $('scoreboard-state').textContent=replayPlayer?'RECORDED TOTALS':engine.phase==='matchOver'?'FINAL TOTALS':engine.phase==='lobby'?'NEW MATCH':`ROUND ${engine.round} TOTALS`;
   }
   function lockSetup(locked){for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('name-select-'+i).disabled=locked;$('name-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
@@ -181,7 +188,7 @@
   }}
   function updateUI(){
     const engine=view(),p=viewPlatforming();
-    const signature=engine.players.map(p=>p.name+':'+p.damage+':'+p.alive).join('|')+engine.scores.join('|')+engine.knockouts.join('|')+(engine.knocks||[]).join('|')+engine.target;if(signature!==hudSignature){drawScores();hudSignature=signature;}
+    const signature=JSON.stringify([engine.players.map(p=>[p.name,p.damage,p.alive]),engine.scores,engine.knockouts,engine.assists,engine.damageDealt,engine.knocks,engine.target,engine.phase,engine.round,!!replayPlayer]);if(signature!==hudSignature){drawScores();hudSignature=signature;}
     $('round-label').textContent=engine.phase==='lobby'?'WARM-UP':`ROUND ${String(engine.round).padStart(2,'0')}`;
     const sec=Math.floor(engine.elapsed);$('timer').textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
     $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):engine.shrinkTime===999?'SHRINKING OFF':`SHRINKS IN ${Math.max(0,Math.ceil(engine.shrinkTime-engine.elapsed))} SEC`;
@@ -354,7 +361,7 @@
 // Updated: 2026-10-11 America/New_York. Changed lines 2,21-32,34-43,56,96,327-328. Changes: player color helpers and lobby markup/events synchronize validated swatches/hex fields and clear errors; mode changes copy overrides; setup locks both controls through matches/replays. Purpose: accessible independent player color choice; upstream: engine.js setColor and existing score/render/replay behavior; environment: browser DOM/Canvas.
 
 // Updated: 2026-10-15 America/New_York. Changed line 34: let player descriptions wrap without overlapping color controls. Purpose: readable narrow-screen chooser; upstream: existing lobby color markup; environment: browser DOM/CSS.
+// Updated: 2026-11-03 America/New_York. Changed lines 2,94-107,166: render KO/assist HUD and ranked tied/live/final/replay match totals; invalidate rendering on stat/round/phase changes. Purpose: damage scoreboard and assists; upstream: engine.js snapshots and replay.js recorded arrays; environment: browser Canvas/DOM.
 
 // Updated: 2026-11-03 America/New_York. Changed lines 148, 236. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
-
 // Updated: 2026-11-03 America/New_York. Added player preset/custom name selector with safety validation, mode retention, match/replay locks, and knock counters on scoreboard and match-over screen.

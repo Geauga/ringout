@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Add bidirectional portals with momentum, moving endpoints and safe re-entry.
+// Request: Preserve momentum portals and shared damage/assist scoring in Platformer.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -127,7 +127,7 @@
       for(const p of this.players){
         if(!p.alive)continue;
         this.land(p,p.prevY);
-        if(p.x<-70||p.x>1070||p.y>770||p.y<-170){p.alive=false;p.fall=0;const hitter = (this.elapsed - (p.lastHitTime||0) < 6) ? p.lastHitBy : undefined; if(hitter !== undefined && hitter !== p.id) this.knockouts[hitter]++; this.emit('eliminated',{id:p.id,x:p.x,y:p.y,lastHitBy: hitter});}
+        if(p.x<-70||p.x>1070||p.y>770||p.y<-170)this.eliminatePlayer(p);
       }
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
@@ -199,5 +199,7 @@
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 66, 130: apply permanent Never and immediate-match scoring with existing shared transitions. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,166,178-179. Change: snapshot includes each fighter color; custom overrides remain inherited from ArenaEngine. Purpose: consistent colors across both modes and state reads; upstream: engine.js custom-color storage; environment: browser / Node 24.
+// Updated: 2026-11-03 America/New_York. Changed lines 2,127: use inherited elimination scoring for damage/assist parity with Arena. Purpose: shared match statistics; upstream: engine.js recordHit/eliminatePlayer and existing platform physics; environment: browser / Node 24.
+
 
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 25, 80, 124, 135-153. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.

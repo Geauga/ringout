@@ -1,4 +1,4 @@
-<!-- index.html | Request: Add a selectable platformer version to the local four-player knockout game with bots. -->
+<!-- index.html | Request: Add a ranked damage, knockout and assist scoreboard to the four-player game. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -37,6 +37,11 @@
             <div id="announcement" class="announcement" role="status" aria-live="polite"></div>
             <div class="touch-controls" id="touch-controls" aria-label="Touch controls"><div class="touch-pad" id="touch-pad"><span id="touch-stick"></span></div><div class="touch-actions"><button id="touch-jump" aria-label="Jump" hidden>JUMP</button><button id="touch-dash" aria-label="Dash">DASH</button></div></div>
           </div>
+          <section class="match-scoreboard" aria-labelledby="match-scoreboard-title">
+            <div class="match-scoreboard-heading"><h3 id="match-scoreboard-title">Match scoreboard<span>.</span></h3><span id="scoreboard-state">NEW MATCH</span></div>
+            <div class="match-scoreboard-scroll" tabindex="0" role="region" aria-label="Match statistics" aria-describedby="scoreboard-note"><table><caption class="sr-only">Match totals for all four players, ranked by round wins, knockouts, assists, then damage dealt. Equal totals share a rank.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Wins</th><th scope="col">KOs</th><th scope="col">Assists</th><th scope="col">Damage dealt</th></tr></thead><tbody id="match-score-rows"></tbody></table></div>
+            <p id="scoreboard-note">Wins decide the match. Ties sort by KOs, assists, then damage dealt. Damage dealt counts damage applied across all rounds, up to 250 per rival per round. Each other attacker who hit a rival within 6 seconds of their KO earns one assist. Totals reset for a new match.</p>
+          </section>
           <section id="replay-controls" class="replay-controls" aria-label="Match replay controls" hidden>
             <div class="replay-heading"><strong>↺ MATCH REPLAY</strong><button id="exit-replay" class="text-button">Exit replay ×</button></div>
             <label class="sr-only" for="replay-seek">Replay position in seconds</label><input id="replay-seek" type="range" min="0" max="1" step="0.01" value="0">
@@ -71,5 +76,7 @@
 <!-- Updated: 2026-09-18 America/New_York. Map workshop adds drop-through, movement direction, travel distance and cycle controls; dialog stays inside body. Upstream: map-editor.js behavior fields. Final line ranges recorded in the work log. -->
 <!-- Updated: 2026-10-03 America/New_York. Line 57 adds the jump-pad checkbox and editor instructions. Purpose: custom pad authoring; upstream: map-editor.js; environment: browser. -->
 <!-- Updated: 2026-10-04 America/New_York. Replay script, Watch replay action and playback panel added at lines 15,30,40-46. Purpose: review the latest match; upstream: replay.js/game.js; environment: browser. -->
+<!-- Updated: 2026-11-03 America/New_York. Changed lines 1,40-44: add accessible ranked match statistics and visible scoring explanation. Purpose: damage scoreboard and assists; upstream: game.js score rendering and engine statistics; environment: browser HTML. -->
+
 
 <!-- Updated: 2026-11-03 America/New_York. Changed line 63: add paired-portal checkbox and instructions. Purpose: portal authoring. Upstream: map-editor.js. Environment: browser. -->

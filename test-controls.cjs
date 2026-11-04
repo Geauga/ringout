@@ -1,5 +1,5 @@
 // test-controls.cjs
-// Request: Verify custom hex controls, name selector safety checks, and knock counters alongside rules, replays and existing browser controls.
+// Request: Verify live/replay scoreboard totals, ranking, custom hex controls, name selector safety checks, and knock counters alongside existing browser controls.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -298,5 +298,27 @@ for(const mode of ['arena','platformer']){
   console.log('PASS:',mode,'hex/picker and name selector synchronization, safety feedback, preset reset, mode retention, match/replay locks and recorded state');
 }
 
-// Updated: 2026-10-11 America/New_York. Changed lines 2,33,37,246-286. Changes: harness models color input focus and ARIA attributes; appended color scenarios follow below. Purpose: verify real chooser handlers and locks; upstream: game.js and both engines; environment: Node 24 simulated browser.
-// Updated: 2026-11-03 America/New_York. Added name selector, safety check validation, and knock counter UI/replay assertions.
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);ui.configure(Array(4).fill('keyboard'));ui.click('start');ui.tick(3.1);
+  const rows=()=>Array.from(ui.get('match-score-rows').innerHTML.matchAll(/<tr[^>]*data-player="(\d)"[^>]*>(.*?)<\/tr>/g),m=>({id:Number(m[1]),html:m[2]}));
+  assert.deepEqual(rows().map(r=>r.id),[0,1,2,3]);assert(rows().every(r=>r.html.startsWith('<td class="match-rank">1</td>')),'equal totals share rank');
+  const g=ui.engine;g.knockouts=[1,2,2,0];g.assists=[9,1,2,0];g.damageDealt=[999,100,1,0];ui.tick(.02);
+  assert.deepEqual(rows().map(r=>r.id),[2,1,0,3],'KO priority before assists/damage');
+  g.assists[1]=2;g.damageDealt[1]=3;ui.tick(.02);assert.deepEqual(rows().map(r=>r.id),[1,2,0,3],'damage breaks equal KO/assist totals');
+  g.scores[0]=1;ui.tick(.02);assert.equal(rows()[0].id,0,'round wins take priority over combat stats');
+  g.assists[0]=10;g.damageDealt[0]=1001;ui.tick(.02);
+  assert.match(rows()[0].html,/<td>10<\/td><td>1001<\/td>/,'new totals update even when damage/alive state is unchanged');
+  g.players[0].alive=false;ui.tick(.02);
+  assert.match(ui.get('scoreboard').innerHTML,/1 KOs · 10 A/,'eliminated players retain visible KO/assist stats');
+  ui.click('reset');assert(ui.get('watch-replay').disabled===false);assert.equal(ui.snapshot().damageDealt[0],0);
+  const live=JSON.stringify(ui.snapshot());ui.click('watch-replay');ui.get('replay-seek').value=ui.get('replay-seek').max;ui.get('replay-seek').dispatch('input');ui.tick(.01);
+  assert.match(ui.get('scoreboard-state').textContent,/RECORDED/);assert.match(rows().find(r=>r.id===0).html,/<td>10<\/td><td>1001<\/td>/);
+  ui.get('replay-seek').value='0';ui.get('replay-seek').dispatch('input');ui.tick(.01);
+  assert(rows().every(r=>r.html.endsWith('<td>0</td><td>0</td><td>0</td><td>0</td>')),'seek restores earlier score totals');
+  ui.click('exit-replay');assert.equal(JSON.stringify(ui.snapshot()),live,'replay never changes live totals');
+  ui.click('start');ui.tick(3.1);g.players.slice(1).forEach(p=>p.x=2000);g.scores[0]=2;ui.tick(3);
+  assert.equal(ui.snapshot().phase,'matchOver');assert.match(ui.get('scoreboard-state').textContent,/FINAL/);assert.match(ui.get('match-score-rows').innerHTML,/class="match-winner"/);
+  ui.click('start');assert.equal(ui.snapshot().phase,'countdown');assert(ui.get('match-score-rows').innerHTML.includes('<td>0</td>'));
+  console.log('PASS:',mode,'scoreboard ranking/ties, eliminated-player totals, stat-only updates, replay seeking/isolation and final/new-match displays');
+}
+// Updated: 2026-11-03 America/New_York. Changed line 2 and added lines 288-310: verify rank priorities/ties, eliminated/stat-only updates, final/reset displays and recorded totals during seeking. Purpose: real scoreboard handler regressions; upstream: game.js browser glue and both engines; environment: Node 24 VM/DOM harness.
