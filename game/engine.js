@@ -1,5 +1,5 @@
 // engine.js
-// Request: Track match damage dealt and recent-hit assists alongside knockout and round scores.
+// Request: Restrict Arena bot dash aiming to the eight directions available on a keyboard.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -83,7 +83,9 @@
         if(q){const d=Math.hypot(q.x-p.x,q.y-p.y);const edge=Math.hypot(p.x-500,p.y-354);if(edge<this.radius-75){x=q.x-p.x+(500-q.x)*.15;y=q.y-p.y+(354-q.y)*.15;}p.aiDash=d<130&&d>34&&edge<this.radius-52&&this.random()>.25;}
         const len=Math.hypot(x,y)||1;p.aiX=x/len;p.aiY=y/len;
       }
-      const input={x:p.aiX,y:p.aiY,dash:p.aiDash};p.aiDash=false;return input;
+      const input={x:p.aiX,y:p.aiY,dash:p.aiDash};
+      if(input.dash){const angle=Math.round(Math.atan2(input.y,input.x)/(Math.PI/4))*Math.PI/4;input.x=Math.round(Math.cos(angle));input.y=Math.round(Math.sin(angle));}
+      p.aiDash=false;return input;
     }
     step(dt, inputs=[]) {
       dt=clamp(dt,0,1/30);if(['paused','lobby','matchOver'].includes(this.phase)) return;
@@ -146,3 +148,4 @@
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,21,27,33-41,120,128-129. Changes: constructor/makeRound retain four custom colors; setSkin resets its override; setColor validates lobby/player/full hex atomically; snapshot copies overrides and player colors. Purpose: independent custom fighter colors; upstream: preset skins and existing round lifecycle; environment: browser / Node 24.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,21,27,53-54,59-76,115,130-138: add match damage/assist totals, actual capped damage accounting, recent-hit contributors, shared elimination credit and isolated snapshots. Purpose: combat scoreboard scoring; upstream: existing collisions, KO attribution and match lifecycle; environment: browser / Node 24.
+// Updated: 2026-11-04 America/New_York. Changed lines 2,86-88: snap Arena bot dash input to the nearest of eight keyboard directions before shared normalization, retaining ordinary movement and human analog input. Purpose: fair bot dash directions; upstream: existing bot steering and shared dash physics; environment: browser / Node 24.
