@@ -1,5 +1,5 @@
 // test-engine.cjs
-// Request: Verify knockout behavior, four independent inputs, paused time, shrinking bounds, and complete bot matches.
+// Request: Verify Arena bot/keyboard dash parity alongside existing gameplay regressions.
 const assert = require('node:assert/strict');
 const { ArenaEngine } = require('./game/engine.js');
 const advance=(game,seconds,inputs=[])=>{for(let t=0;t<seconds;t+=1/120)game.step(1/120,inputs);};
@@ -21,6 +21,19 @@ g=local();g.players.forEach(p=>p.x=2000);g.step(1/120);assert.deepEqual(g.scores
 console.log('PASS: simultaneous elimination is a draw without phantom score');
 g=new ArenaEngine();assert.throws(()=>g.configure(['keyboard'],2));assert.throws(()=>g.configure(['gamepad0','gamepad0','bot','bot'],3));
 console.log('PASS: invalid configuration and duplicate controllers rejected');
+const directions=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+function dashGame(mode){const game=new ArenaEngine();game.configure([mode,'keyboard','keyboard','keyboard'],3);game.start();game.phase='playing';Object.assign(game.players[0],{x:500,y:354});return game;}
+const close=(a,b)=>assert(Math.abs(a-b)<1e-8,`${a} differs from ${b}`);
+for(let degrees=-180;degrees<180;degrees+=3){
+  const game=dashGame('bot'),p=game.players[0],angle=degrees*Math.PI/180;
+  Object.assign(p,{aiTime:1,aiX:Math.cos(angle),aiY:Math.sin(angle),aiDash:true});game.step(1/120);
+  const direction=directions.reduce((best,d)=>{const length=Math.hypot(...d),dot=(d[0]*Math.cos(angle)+d[1]*Math.sin(angle))/length;return dot>best.dot?{d,dot}:best;},{dot:-Infinity}).d;
+  const human=dashGame('keyboard');human.step(1/120,[{x:direction[0],y:direction[1],dash:true}]);
+  close(p.vx,human.players[0].vx);close(p.vy,human.players[0].vy);close(Math.hypot(p.vx,p.vy),900);
+}
+g=dashGame('bot');Object.assign(g.players[0],{aiTime:1,aiX:.6,aiY:.8,aiDash:false});const steering=g.bot(g.players[0],1/120);close(steering.x,.6);close(steering.y,.8);
+g=dashGame('gamepad0');g.step(1/120,[{x:.6,y:.8,dash:true}]);close(g.players[0].vx,540);close(g.players[0].vy,720);
+console.log('PASS: 120 bot aim angles match nearest keyboard dash velocities; ordinary steering and analog human aiming preserved');
 const durations=[];
 for(let seed=1;seed<=20;seed++){
   let state=seed;const random=()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;};
@@ -33,3 +46,4 @@ console.log('All gameplay validation checks passed.');
 // Purpose: Reproducible gameplay regression checks. Upstream: dist/engine.js, the knockout simulation. Environment: Node.js built-in assert; no packages. Generated: 2026-09-11 America/New_York. New file: all lines.
 
 // Updated: 2026-09-15 America/New_York. Import lines now use game/ after separating authored source from protected build output.
+// Updated: 2026-11-04 America/New_York. Changed line 2; added directional regression block before seeded matches. Purpose: compare actual bot/keyboard launch velocities across 120 angles and retain steering/analog behavior; upstream: ArenaEngine bot inputs and shared step; environment: Node built-in assertions.
