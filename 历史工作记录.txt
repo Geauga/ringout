@@ -535,3 +535,10 @@ Prompt: Complete reviewed name-switch fix and normal push while preserving concu
 Actions: Initial tested fix commit ca6b293 was rejected because bot-direction commits f89ede4/c06ca4b reached main. Normally merged origin/main; only work records conflicted. Verified both sides start with the same base and retained both full appended blocks. No runtime-source conflict or overwrite. Rebuilt and reran all fourteen suites on the combined source: all passed, including 120 bot-direction cases, 140 seeded matches and the new failing-before/fixed-after name-switch regression. Bundle 186362 bytes. No browser, CI, installed-package or Site update claimed.
 Files/platform: game/game.js and test-controls.cjs fix from ca6b293; preserved incoming bot source/test/docs; 历史工作记录.txt append-only resolution in isolated local Windows worktree .tmp/review-names-20261104. Original shared checkout untouched by this integration.
 GitHub Timeline: 已 commit 未 push for ca6b293 after the rejected push; validated merge is 未 commit at this append. Preparing normal merge commit/push and exact remote verification; no force push or history rewrite.
+
+## 2026-11-04 17:05 America/New_York
+Prompt: Complete requested bot fix push.
+Actions/files: Normal integration committed as c06ca4bbfaef48292044f93d756237def5537c73 and pushed to Geauga/ringout main; this append records completion only.
+Validation: Exact remote SHA matched c06ca4b; working tree was clean. All fourteen combined suites passed as recorded above. Arena bots now launch in keyboard compass directions with unchanged shared dash speed.
+Execution/platform: Local Windows repository and GitHub main; Geauga identity, no history rewrite, package rebuild or hosted deployment.
+GitHub Timeline: 已 push for c06ca4b, independently verified with git ls-remote. This completion-only record will also be committed/pushed normally; no tested runtime changes.
