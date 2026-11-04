@@ -521,3 +521,10 @@ Files: game/engine.js, test-engine.cjs, README.md, REQUIREMENTS.md and append-on
 Validation: Combined build 185923 bytes and all fourteen suites passed, including 120 actual bot/keyboard launch comparisons, 140 seeded bot matches, continuous steering/analog aiming retention, and existing names/colors/knock stats/replays/portals/editor/migration/API/server checks. Expected failing fixtures retain diagnostics; git diff --check passed. No runtime dependency, browser or package changes needed.
 Execution/platform: Local Windows repository and existing Geauga/ringout GitHub main. No force push, history reset, user-data change, hosted Site deployment or ZIP rebuild.
 GitHub Timeline: 已 commit 未 push for feature f89ede4; normal integration resolution is 未 commit at this append. Preparing normal merge commit/push and exact remote SHA verification.
+
+## 2026-11-04 17:05 America/New_York
+Prompt: Complete requested bot fix push.
+Actions/files: Normal integration committed as c06ca4bbfaef48292044f93d756237def5537c73 and pushed to Geauga/ringout main; this append records completion only.
+Validation: Exact remote SHA matched c06ca4b; working tree was clean. All fourteen combined suites passed as recorded above. Arena bots now launch in keyboard compass directions with unchanged shared dash speed.
+Execution/platform: Local Windows repository and GitHub main; Geauga identity, no history rewrite, package rebuild or hosted deployment.
+GitHub Timeline: 已 push for c06ca4b, independently verified with git ls-remote. This completion-only record will also be committed/pushed normally; no tested runtime changes.
