@@ -65,3 +65,5 @@ Execution location: local Windows Git repository. Gameplay and replay recording 
 Please refer to the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) to review our community standards.
 
 Arena bots aim dashes in the same eight compass directions available on a keyboard. Their normal steering stays continuous; controller and touch players retain analog aiming.
+
+Platformer bots plan routes through reachable ledges and portal pairs, keep a landing target while airborne, and account for momentum when steering. Moving or eroded platforms are re-evaluated each decision; bots stay on a safe surface when a route is temporarily unavailable.
