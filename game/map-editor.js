@@ -1,5 +1,5 @@
 // map-editor.js
-// Request: Keep successful map writes and current library reloads safe from delayed responses.
+// Request: Author and preview paired portal endpoints on selected platforms.
 (function(root){
   'use strict';
   const clone=value=>JSON.parse(JSON.stringify(value));
@@ -77,6 +77,7 @@
       $('platform-y').max=current.id==='floor'?620:draft.platforms[0].y-60;
       $('platform-drop').checked=!!current.dropThrough;$('platform-drop').disabled=busy||current.id==='floor';
       $('platform-jump-pad').checked=!!current.jumpPad;
+      $('platform-portal').checked=!!current.portal;
       $('platform-motion').value=current.motion?.axis||'none';$('platform-motion').disabled=busy||current.id==='floor';
       $('platform-motion-fields').hidden=!current.motion;
       $('platform-travel').value=Math.abs(current.motion?.distance??80);$('platform-period').value=current.motion?.period??4;
@@ -100,10 +101,11 @@
           Object.assign(end.style,{left:(p.x+dx)/10+'%',top:(p.y+dy)/7.2+'%',width:p.w/10+'%',height:p.h/7.2+'%'});board.append(end);
         }
         const button=document.createElement('button');button.type='button';button.className='editor-platform'+(p.id===platformId?' selected':'')+(p.dropThrough?' drop-through':'');button.dataset.platform=p.id;
-        button.setAttribute('aria-label',(p.id==='floor'?'Select main floor':`Select ledge ${i}`)+(p.dropThrough?', drop-through':'')+(p.motion?', moving':'')+(p.jumpPad?', jump pad':''));button.setAttribute('aria-pressed',String(p.id===platformId));
+        button.setAttribute('aria-label',(p.id==='floor'?'Select main floor':`Select ledge ${i}`)+(p.dropThrough?', drop-through':'')+(p.motion?', moving':'')+(p.jumpPad?', jump pad':'')+(p.portal?', portal':''));button.setAttribute('aria-pressed',String(p.id===platformId));
         Object.assign(button.style,{left:p.x/10+'%',top:p.y/7.2+'%',width:p.w/10+'%',height:p.h/7.2+'%'});
         const label=document.createElement('span');label.textContent=p.id==='floor'?'MAIN FLOOR':`${i}${p.motion?(p.motion.axis==='x'?' ↔':' ↕'):''}${p.dropThrough?' ↓':''}`;button.append(label);board.append(button);
         if(p.jumpPad){const pad=RingoutMaps.padBounds(p),marker=document.createElement('span');marker.className='editor-jump-pad';marker.textContent='↑';Object.assign(marker.style,{left:pad.x/10+'%',top:(p.y-10)/7.2+'%',width:pad.w/10+'%'});board.append(marker);}
+        if(p.portal){const center=RingoutMaps.portalCenter(p),marker=document.createElement('span');marker.className='editor-portal';marker.textContent=draft.platforms.filter(q=>q.portal).indexOf(p)===0?'A':'B';if(marker.textContent==='B'){marker.style.borderColor='#ffb36d';marker.style.background='#ffb36d25';}Object.assign(marker.style,{left:center.x/10+'%',top:center.y/7.2+'%'});board.append(marker);}
       }
       for(const [i,p] of RingoutMaps.spawns(draft).entries()){
         const spawn=document.createElement('span');spawn.className='editor-spawn';spawn.textContent=`P${i+1}`;spawn.style.left=p.x/10+'%';spawn.style.top=p.y/7.2+'%';spawn.style.setProperty('--player',PLAYER_COLORS[i]);board.append(spawn);
@@ -152,13 +154,14 @@
     $('map-name').addEventListener('input',()=>{draft.name=$('map-name').value;render();});
     $('platform-list').addEventListener('change',()=>{platformId=$('platform-list').value;render();});
     $('platform-jump-pad').addEventListener('change',()=>{if(busy)return;draft.platforms.find(p=>p.id===platformId).jumpPad=$('platform-jump-pad').checked;render();});
+    $('platform-portal').addEventListener('change',()=>{if(busy)return;draft.platforms.find(p=>p.id===platformId).portal=$('platform-portal').checked;render();});
     for(const id of ['platform-x','platform-y','platform-width'])for(const event of ['change','blur'])$(id).addEventListener(event,editCoordinate);
     for(const id of ['platform-drop','platform-motion','platform-travel','platform-direction','platform-period'])$(id).addEventListener('change',editBehavior);
     for(const id of ['platform-travel','platform-period'])$(id).addEventListener('blur',editBehavior);
     $('add-platform').addEventListener('click',()=>{
       for(let y=draft.platforms[0].y-140;y>=140;y-=140)for(const x of [100,400,700]){
         const id='ledge-'+Date.now().toString(36),candidate={id,x,y,w:180,h:18};
-        try{RingoutMaps.validate({...draft,platforms:[...draft.platforms,candidate]});draft.platforms.push(candidate);platformId=id;render();return;}catch{ /* Try the next free, reachable grid position. */ }
+        try{RingoutMaps.validate({...draft,platforms:[...draft.platforms.map(p=>({...p,portal:false})),candidate]});draft.platforms.push(candidate);platformId=id;render();return;}catch{ /* Try the next free, reachable grid position. */ }
       }
       $('editor-status').textContent='Make room for a new ledge by moving or resizing an existing one.';
     });
@@ -203,3 +206,5 @@
 // Updated: 2026-10-05 America/New_York. Lines 2,27-54 reconcile reloaded saved revisions, refresh unchanged drafts and preserve dirty/deleted-map edits as new drafts; 109,112 defer open-dialog reconciliation until reopening and explain separate-copy saves. Purpose: conflict recovery without losing edits; upstream: maps-api.mjs revisions and maps.js validation; environment: browser DOM/fetch.
 
 // Updated: 2026-10-10 America/New_York. Changed lines 2,9,47-60,144,191: track successful writes and active reads, refresh stale pre-write lists, ignore superseded results/status and let only the current read unlock reload. Purpose: preserve saved maps and library state across asynchronous responses; upstream: existing editor/API callbacks and test-map-editor.cjs regressions; environment: browser DOM/fetch and Node 24 tests.
+
+// Updated: 2026-11-03 America/New_York. Changed lines 2, 80, 108, 157, 164. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.

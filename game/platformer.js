@@ -1,5 +1,5 @@
 // platformer.js
-// Request: Share match damage/assist scoring and elimination credit with Arena mode.
+// Request: Preserve momentum portals and shared damage/assist scoring in Platformer.
 (function (root) {
   'use strict';
   const Base = typeof module !== 'undefined' && module.exports ? require('./engine.js').ArenaEngine : root.ArenaEngine;
@@ -22,6 +22,7 @@
         grounded:true,jumps:0,jumpHeld:false,coyote:.09,jumpBuffer:0,
         support:'floor',prevX:spawns[i].x,prevY:spawns[i].y,hitStun:0,aiJump:false,aiJumpDelay:.3+i*.15,
         dropHeld:false,dropPlatform:null,dropTime:0,carriedBy:null,aiDrop:false,
+        portalCooldown:0,portalTrips:0,
       }));
     }
     bot(p,dt) {
@@ -76,6 +77,7 @@
       for(const p of this.players){
         if(!p.alive){p.fall+=dt;continue;}
         p.prevX=p.x;p.prevY=p.y;p.carriedBy=null;
+        p.portalCooldown=Math.max(0,p.portalCooldown-dt);
         p.dropTime=Math.max(0,p.dropTime-dt);
         const ignored=this.platforms.find(s=>s.id===p.dropPlatform);
         if(!ignored||ignored.w<=0||(p.dropTime<=0&&(p.y-p.r>ignored.y+ignored.h||p.y+p.r<ignored.y-2)))p.dropPlatform=null;
@@ -119,6 +121,7 @@
         p.grounded=false;p.support=null;
         this.land(p,p.prevY);
       }
+      for(const p of this.players)this.teleport(p);
       for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)this.collide(this.players[i],this.players[j]);
       // Resolve downward collision displacement against one-way platform tops as well.
       for(const p of this.players){
@@ -128,6 +131,25 @@
       }
       const alive=this.players.filter(p=>p.alive);
       if(alive.length<=1){this.roundWinner=alive[0]?.id??null;if(this.roundWinner!==null){if(this.lastStanding==='match')this.scores[this.roundWinner]=this.target;else this.scores[this.roundWinner]++;}this.phase='roundOver';this.clock=2.8;this.emit('roundOver',{winner:this.roundWinner,draw:alive.length===0});}
+    }
+    teleport(p) {
+      if(!p.alive||p.portalCooldown>0)return;
+      const gates=this.platforms.filter(s=>s.portal&&s.w>=50);
+      if(gates.length!==2)return;
+      for(const [i,s] of gates.entries()){
+        const center=Maps.portalCenter(s);
+        // Sweep relative to the moving gate so fast dashes cannot skip its opening.
+        const ax=p.prevX-(s.previousX+s.previousW/2),ay=p.prevY-(s.previousY-26);
+        const dx=p.x-center.x-ax,dy=p.y-center.y-ay;
+        const t=clamp(-(ax*dx+ay*dy)/(dx*dx+dy*dy||1),0,1);
+        if(Math.hypot(ax+dx*t,ay+dy*t)>26)continue;
+        const exit=gates[1-i],to=Maps.portalCenter(exit),from={x:p.x,y:p.y};
+        p.x=to.x;p.y=exit.y-p.r-4;p.prevX=p.x;p.prevY=p.y;
+        p.grounded=false;p.support=null;p.carriedBy=null;p.coyote=0;
+        p.dropPlatform=null;p.dropTime=0;p.portalCooldown=.65;p.portalTrips++;
+        this.emit('portal',{id:p.id,from: s.id,to:exit.id,entryX:from.x,entryY:from.y,x:p.x,y:p.y});
+        break;
+      }
     }
     land(p,previousY) {
       let landing=null;
@@ -178,3 +200,6 @@
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,166,178-179. Change: snapshot includes each fighter color; custom overrides remain inherited from ArenaEngine. Purpose: consistent colors across both modes and state reads; upstream: engine.js custom-color storage; environment: browser / Node 24.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,127: use inherited elimination scoring for damage/assist parity with Arena. Purpose: shared match statistics; upstream: engine.js recordHit/eliminatePlayer and existing platform physics; environment: browser / Node 24.
+
+
+// Updated: 2026-11-03 America/New_York. Changed lines 2, 25, 80, 124, 135-153. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
