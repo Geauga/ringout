@@ -513,3 +513,11 @@ Files: game/engine.js; test-engine.cjs; 历史工作记录.txt append only, incl
 Validation: Build passed (178820 bytes); all fourteen suites passed, including 140 seeded matches and 120 directional comparisons. git diff --check passed. No browser, new package or hosted publication requested for this repository change.
 Execution/platform: Local Windows repository; GitHub main has four incoming fighter-name/knock-counter and attribution commits. Preparing normal integration preserving those changes. Incoming protocol requires Geauga author/committer; use the verified repository identity. No history rewrite authorized or performed by this task.
 GitHub Timeline: 未 commit at record creation. Will commit the tested change, merge incoming main, validate combined source and push normally to Geauga/ringout main.
+
+## 2026-11-04 17:05 America/New_York
+Prompt: Finish Arena bot dash restriction and GitHub push.
+Actions: Normally merged newer origin/main 74e2af7, preserving fighter-name validation, knock counters, Geauga attribution protocol and prior history. Resolved only two engine comment conflicts; the bot dash logic and incoming gameplay changes merged independently. Added README and requirement 18 describing nearest-eight keyboard dash directions. Confirmed repository author/committer identity is Geauga <292801430+Geauga@users.noreply.github.com>.
+Files: game/engine.js, test-engine.cjs, README.md, REQUIREMENTS.md and append-only 历史工作记录.txt; incoming files preserved by normal merge. No generated/private files staged.
+Validation: Combined build 185923 bytes and all fourteen suites passed, including 120 actual bot/keyboard launch comparisons, 140 seeded bot matches, continuous steering/analog aiming retention, and existing names/colors/knock stats/replays/portals/editor/migration/API/server checks. Expected failing fixtures retain diagnostics; git diff --check passed. No runtime dependency, browser or package changes needed.
+Execution/platform: Local Windows repository and existing Geauga/ringout GitHub main. No force push, history reset, user-data change, hosted Site deployment or ZIP rebuild.
+GitHub Timeline: 已 commit 未 push for feature f89ede4; normal integration resolution is 未 commit at this append. Preparing normal merge commit/push and exact remote SHA verification.

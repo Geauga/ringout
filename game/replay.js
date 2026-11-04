@@ -1,12 +1,12 @@
 // replay.js
-// Request: Capture damage/assist totals and portal discontinuities in isolated replay frames.
+// Request: Capture damage/assist totals, knock counters, custom names and portal discontinuities in isolated replay frames.
 (function(root){
   'use strict';
   const copy=value=>JSON.parse(JSON.stringify(value));
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const active=new Set(['countdown','playing','roundOver']);
   function capture(engine,gameMode){
-    return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...engine.assists],damageDealt:[...engine.damageDealt],players:engine.players.map(p=>{
+    return {gameMode,phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...(engine.assists||[0,0,0,0])],damageDealt:[...(engine.damageDealt||[0,0,0,0])],knocks:[...(engine.knocks||[0,0,0,0])],customNames:[...(engine.customNames||[null,null,null,null])],players:engine.players.map(p=>{
       const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps','portalTrips'])if(p[key]!==undefined)out[key]=p[key];return out;
     }),platforms:engine.platforms?copy(engine.platforms):[]};
   }
@@ -60,5 +60,5 @@
 // Updated: 2026-10-07 America/New_York. Changed lines 2, 9: copy house rules and per-match knockout counters into each independent recorded frame. Purpose: patch reviewed rules/attribution while preserving incoming features. Upstream: existing simulation, browser UI and replay/control tests at 3d937e8. Environment: browser / Node 24+.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,9: independently capture assist/damage arrays per frame. Purpose: replay scoreboard history without live-state mutation; upstream: shared engine statistics; environment: browser / Node 24.
 
-
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 10, 50. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+// Updated: 2026-11-03 America/New_York. Added knocks and customNames capture in replay frames.

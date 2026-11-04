@@ -1,8 +1,9 @@
 // game.js
-// Request: Show damage/assist scoreboards and paired-portal feedback in live matches and replays.
+// Request: Show damage/assist scoreboards, knock counters, name selector with safety checks, and paired-portal feedback.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
+  const PRESET_NAMES=typeof PLAYER_PRESET_NAMES!=='undefined'?PLAYER_PRESET_NAMES:['ACE','APEX','BLAZE','BOLT','COMET','ECHO','FROST','GHOST','NOVA','ORBIT','PULSE','ROGUE','SHADOW','SPARK','STORM','TITAN','VIPER','VORTEX'];
   let engine=new ArenaEngine();
   let selectedMap=RingoutMaps.presets[0];
   const recorder=new RingoutReplay.Recorder();
@@ -30,16 +31,38 @@
     try{engine.setColor(id,value);}catch(error){$('hex-'+id).setAttribute('aria-invalid','true');$('color-error-'+id).textContent=error.message;return;}
     syncPlayerColor(id);hudSignature='';updateUI();
   }
+  function syncPlayerName(id){
+    const name=engine.players[id].name,custom=engine.customNames[id],skin=PLAYER_SKINS[engine.skins[id]]||PLAYER_SKINS[id];
+    const select=$('name-select-'+id);
+    if(select.options?.[0])select.options[0].textContent=`Skin (${skin.name})`;
+    select.value=!custom?'':PRESET_NAMES.includes(custom)?custom:'custom';
+    $('name-'+id).value=name;
+    $('name-'+id).setAttribute('aria-invalid','false');$('name-error-'+id).textContent='';
+  }
+  function choosePlayerName(id,value){
+    if(engine.phase!=='lobby'||replayPlayer)return;
+    try{engine.setName(id,value);}catch(error){$('name-'+id).setAttribute('aria-invalid','true');$('name-error-'+id).textContent=error.message;return;}
+    syncPlayerName(id);hudSignature='';updateUI();
+  }
+  function choosePresetName(id,value){
+    if(engine.phase!=='lobby'||replayPlayer)return;
+    if(value===''){engine.resetName(id);syncPlayerName(id);hudSignature='';updateUI();return;}
+    if(value==='custom'){$('name-'+id).focus();return;}
+    try{engine.setName(id,value);}catch(error){syncPlayerName(id);$('name-'+id).setAttribute('aria-invalid','true');$('name-error-'+id).textContent=error.message;return;}
+    syncPlayerName(id);hudSignature='';updateUI();
+  }
   function setupUI(){
-    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${engine.players[i].color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; min-height: 1.2em;">${skin.description}</div><div class="player-color-controls"><label for="hex-${i}">Hex</label><input id="color-${i}" type="color" aria-label="Player ${i+1} color picker"><input id="hex-${i}" type="text" maxlength="7" placeholder="#RRGGBB" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} hex color" aria-describedby="color-error-${i}"></div><span id="color-error-${i}" class="color-error" role="status"></span><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
+    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${engine.players[i].color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; min-height: 1.2em;">${skin.description}</div><div class="player-name-controls"><label for="name-select-${i}">Name</label><select id="name-select-${i}" class="name-select" aria-label="Player ${i+1} preset name"><option value="">Skin (${skin.name})</option>${PRESET_NAMES.map(n => `<option value="${n}">${n}</option>`).join('')}<option value="custom">Custom…</option></select><input id="name-${i}" type="text" maxlength="12" placeholder="Fighter name" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} custom name" aria-describedby="name-error-${i}"></div><span id="name-error-${i}" class="name-error" role="status"></span><div class="player-color-controls"><label for="hex-${i}">Hex</label><input id="color-${i}" type="color" aria-label="Player ${i+1} color picker"><input id="hex-${i}" type="text" maxlength="7" placeholder="#RRGGBB" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} hex color" aria-describedby="color-error-${i}"></div><span id="color-error-${i}" class="color-error" role="status"></span><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
     for(let i=0;i<4;i++){
       $('player-'+i).value=engine.modes[i];$('player-'+i).addEventListener('change',configure);
-      $('skin-'+i).addEventListener('change',e=>{engine.setSkin(i,parseInt(e.target.value,10));syncPlayerColor(i);hudSignature='';updateUI();});
+      $('skin-'+i).addEventListener('change',e=>{engine.setSkin(i,parseInt(e.target.value,10));syncPlayerColor(i);syncPlayerName(i);hudSignature='';updateUI();});
+      $('name-select-'+i).addEventListener('change',()=>choosePresetName(i,$('name-select-'+i).value));
       for(const event of ['input','change']){
+        $('name-'+i).addEventListener(event,()=>choosePlayerName(i,$('name-'+i).value));
         $('hex-'+i).addEventListener(event,()=>choosePlayerColor(i,$('hex-'+i).value));
         $('color-'+i).addEventListener(event,()=>choosePlayerColor(i,$('color-'+i).value));
       }
-      syncPlayerColor(i);
+      syncPlayerColor(i);syncPlayerName(i);
     }
     $('win-target').addEventListener('change',configure);
       $('shrink-time').addEventListener('change',configure);
@@ -54,6 +77,7 @@
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
     engine.skins.forEach((skin,id)=>next.setSkin(id,skin));
     engine.customColors.forEach((color,id)=>{if(color)next.setColor(id,color);});
+    engine.customNames.forEach((name,id)=>{if(name)next.setName(id,name);});
     if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
@@ -91,7 +115,7 @@
   }
   function drawScores(){
     const engine=view();
-    $('scoreboard').innerHTML=engine.players.map((p,i)=>`<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="Player ${i+1} ${p.name}, ${engine.scores[i]} round wins, ${engine.knockouts[i]} knockouts, ${engine.assists?.[i]??0} assists, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">P${i+1} ${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span><span class="score-mini-stats">${engine.knockouts[i]} KOs · ${engine.assists?.[i]??0} A</span></div>`).join('');
+    $('scoreboard').innerHTML=engine.players.map((p,i)=>{const knocks=engine.knocks?.[i]??0;return `<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="Player ${i+1} ${p.name}, ${engine.scores[i]} round wins, ${knocks} knocks, ${engine.knockouts[i]} knockouts, ${engine.assists?.[i]??0} assists, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">P${i+1} ${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span><span class="score-mini-stats">${knocks} KNOCKS · ${engine.knockouts[i]} KOs · ${engine.assists?.[i]??0} A</span></div>`;}).join('');
     const rows=engine.players.map((p,i)=>({p,wins:engine.scores[i],kos:engine.knockouts[i],assists:engine.assists?.[i]??0,damage:engine.damageDealt?.[i]??0})).sort((a,b)=>b.wins-a.wins||b.kos-a.kos||b.assists-a.assists||b.damage-a.damage||a.p.id-b.p.id);
     let rank=1;
     $('match-score-rows').innerHTML=rows.map((row,i)=>{
@@ -100,7 +124,7 @@
     }).join('');
     $('scoreboard-state').textContent=replayPlayer?'RECORDED TOTALS':engine.phase==='matchOver'?'FINAL TOTALS':engine.phase==='lobby'?'NEW MATCH':`ROUND ${engine.round} TOTALS`;
   }
-  function lockSetup(locked){for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
+  function lockSetup(locked){for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('name-select-'+i).disabled=locked;$('name-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
     const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
@@ -158,13 +182,13 @@
     if(e.type==='shrink'){announce(platforming()?'THE PLATFORMS ARE SHRINKING. KEEP MOVING.':'THE ARENA IS SHRINKING. KEEP MOVING.',3);tone(260,.35,'triangle');}
     if(e.type==='roundOver'){announce(e.draw?'DOUBLE KNOCKOUT. NO POINTS THIS ROUND.':`${engine.players[e.winner].name} TAKES ROUND ${engine.round}!`,2.7);tone(540,.25,'triangle');}
     if(e.type==='matchOver'){
-      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='WE HAVE A WINNER';$('overlay-title').innerHTML=`${engine.players[e.winner].name}<br><em>WINS IT.</em>`;$('overlay-description').textContent=`${engine.scores[e.winner]} round wins. The arena has a new champion.`;$('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
+      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='WE HAVE A WINNER';$('overlay-title').innerHTML=`${engine.players[e.winner].name}<br><em>WINS IT.</em>`;$('overlay-description').textContent=`${engine.scores[e.winner]} round wins · ${engine.knocks[e.winner]} knocks · ${engine.knockouts[e.winner]} KOs. The arena has a new champion.`;$('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
       for(let i=0;i<90;i++)effects.push({x:500,y:240,vx:(Math.random()-.5)*600,vy:-Math.random()*350,life:2+Math.random()*2,max:4,color:engine.players[i%4].color,size:3+Math.random()*3,gravity:140});
     }
   }}
   function updateUI(){
     const engine=view(),p=viewPlatforming();
-    const signature=JSON.stringify([engine.players.map(p=>[p.damage,p.alive]),engine.scores,engine.knockouts,engine.assists,engine.damageDealt,engine.target,engine.phase,engine.round,!!replayPlayer]);if(signature!==hudSignature){drawScores();hudSignature=signature;}
+    const signature=JSON.stringify([engine.players.map(p=>[p.name,p.damage,p.alive]),engine.scores,engine.knockouts,engine.assists,engine.damageDealt,engine.knocks,engine.target,engine.phase,engine.round,!!replayPlayer]);if(signature!==hudSignature){drawScores();hudSignature=signature;}
     $('round-label').textContent=engine.phase==='lobby'?'WARM-UP':`ROUND ${String(engine.round).padStart(2,'0')}`;
     const sec=Math.floor(engine.elapsed);$('timer').textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
     $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):engine.shrinkTime===999?'SHRINKING OFF':`SHRINKS IN ${Math.max(0,Math.ceil(engine.shrinkTime-engine.elapsed))} SEC`;
@@ -261,7 +285,7 @@
     // Facing eyes convey dash direction; the lower marker identifies the player's slot.
     const ex=p.fx*5,ey=p.fy*5;ctx.fillStyle='#253143';for(const offset of [-5,5]){ctx.beginPath();ctx.ellipse(ex+offset,ey-2,2.4,3.8,0,0,Math.PI*2);ctx.fill();}
     ctx.strokeStyle='#253143';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(ex,ey+3,4,.2,Math.PI-.2);ctx.stroke();
-    ctx.textAlign='center';ctx.font='700 11px "DM Sans", sans-serif';ctx.fillStyle='#edf1f7';ctx.shadowColor='#122030';ctx.shadowBlur=5;ctx.fillText(`P${p.id+1}`,0,-38);ctx.shadowBlur=0;
+    ctx.textAlign='center';ctx.font='700 11px "DM Sans", sans-serif';ctx.fillStyle='#edf1f7';ctx.shadowColor='#122030';ctx.shadowBlur=5;ctx.fillText(engine.customNames?.[p.id]?`P${p.id+1} · ${p.name}`:`P${p.id+1}`,0,-38);ctx.shadowBlur=0;
     if(engine.phase==='playing'&&p.alive){ctx.font='700 10px "DM Sans",sans-serif';ctx.fillStyle=p.color;ctx.fillText(`${p.damage}%`,0,43);}
     if(viewPlatforming()&&p.alive){for(let j=0;j<2;j++)circle(-5+j*10,52,2.5,j<2-p.jumps?p.color:'#59606d');}
     ctx.restore();
@@ -339,5 +363,5 @@
 // Updated: 2026-10-15 America/New_York. Changed line 34: let player descriptions wrap without overlapping color controls. Purpose: readable narrow-screen chooser; upstream: existing lobby color markup; environment: browser DOM/CSS.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,94-107,166: render KO/assist HUD and ranked tied/live/final/replay match totals; invalidate rendering on stat/round/phase changes. Purpose: damage scoreboard and assists; upstream: engine.js snapshots and replay.js recorded arrays; environment: browser Canvas/DOM.
 
-
 // Updated: 2026-11-03 America/New_York. Changed lines 148, 236. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
+// Updated: 2026-11-03 America/New_York. Added player preset/custom name selector with safety validation, mode retention, match/replay locks, and knock counters on scoreboard and match-over screen.

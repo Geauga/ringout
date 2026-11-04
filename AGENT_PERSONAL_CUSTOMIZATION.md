@@ -129,3 +129,9 @@ python log_append.py \
 4: 如果本文件与 `README.md`、`REQUIREMENTS.md` 或 Notebook 说明发生冲突，应把本文件视为 agent 操作协议，把其他文件视为项目功能说明。必要时同步更新其他文件，避免文档分裂。
 
 5: 本文件可以被复制到不同平台、不同 IDE、不同 agent 系统中作为项目内统一配置入口。
+
+## 9. Git 提交署名
+
+1: 本仓库今后的 Git author 与 committer 均使用 Geauga，邮箱使用已验证历史署名中的 `292801430+Geauga@users.noreply.github.com`；执行 commit 前检查本仓库 Git identity，不要依赖其他项目或全局配置。
+
+2: 2026-11-03 用户明确要求同时纠正本次会话已经 push 的 actacomes 署名，并已知悉需要改写公开历史。该授权仅适用于本次已确认范围；不得改写 Dependabot 的作者归属。保留恢复引用，校验代码 tree 不变，并使用带确切预期远端 SHA 的 `--force-with-lease`。以后改写已发布历史仍须有对应的明确授权。
