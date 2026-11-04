@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "description": "Four-player local arena and platformer with a shared custom-map library",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "node server.cjs",
-    "test": "node test-engine.cjs && node test-platformer.cjs && node test-bot-navigation.cjs && node test-platform-features.cjs && node test-jump-pads.cjs && node test-portals.cjs && node test-match-rules.cjs && node test-stats.cjs && node test-colors.cjs && node test-replay.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-local-db.mjs && node test-maps.mjs && node scripts/test-package.mjs",
+    "test": "node test-engine.cjs && node test-bot-difficulties.cjs && node test-platformer.cjs && node test-bot-navigation.cjs && node test-platform-features.cjs && node test-jump-pads.cjs && node test-portals.cjs && node test-match-rules.cjs && node test-stats.cjs && node test-colors.cjs && node test-replay.cjs && node test-controls.cjs && node test-map-editor.cjs && node test-local-db.mjs && node test-maps.mjs && node scripts/test-package.mjs",
     "db:generate": "drizzle-kit generate"
   },
-  "devDependencies": { "drizzle-kit": "0.31.11", "drizzle-orm": "0.45.4" }
+  "devDependencies": {
+    "drizzle-kit": "0.31.11",
+    "drizzle-orm": "0.45.4"
+  }
 }

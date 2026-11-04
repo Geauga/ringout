@@ -40,9 +40,10 @@
       return null;
     }
     bot(p,dt) {
+      const skill=this.botProfile(p.id);
       p.aiTime-=dt;p.aiJumpDelay=Math.max(0,p.aiJumpDelay-dt);
       if(p.aiTime<=0){
-        p.aiTime=.10+this.random()*.09;
+        p.aiTime=skill.reaction+.01+this.random()*skill.jitter;
         const surfaces=this.platforms.filter(s=>s.w>=50),floor=this.platforms.find(s=>s.id==='floor');
         const support=surfaces.find(s=>s.id===p.support),center=s=>s.x+s.w/2;
         const gap=(s,x)=>Math.max(0,s.x-x,x-s.x-s.w);
@@ -60,12 +61,12 @@
         }
         let goal=destination?center(destination):500;
         if(p.grounded&&support){
-          if(destination?.id===support.id)goal=clamp(target?.x??center(support),support.x+24,support.x+support.w-24);
+          if(destination?.id===support.id)goal=clamp(target?target.x+target.vx*skill.lead:center(support),support.x+24,support.x+support.w-24);
           else if(portalRoute)goal=center(support);
           else goal=clamp(goal,support.x+24,support.x+support.w-24);
         }
         const steering=goal-(p.x+p.vx*(p.grounded?.10:.20));
-        p.aiX=Math.abs(steering)<10?0:Math.sign(steering);
+        p.aiX=Math.abs(steering)<10?0:Math.sign(steering)*skill.control;
         const next=destination&&destination.id!==support?.id;
         const rise=destination?destination.y-(p.y+p.r):0;
         const launch=p.grounded&&support&&next&&!portalRoute&&Math.abs(goal-p.x)<35;
@@ -73,14 +74,15 @@
         p.aiDrop=!!(descend&&support.dropThrough&&gap(destination,p.x)<20);
         if(descend&&!p.aiDrop)p.aiX=center(destination)<center(support)?-1:1;
         const climb=!!destination&&rise<-24&&!p.grounded&&p.jumps<2&&p.vy>-60;
-        const recover=!p.grounded&&p.jumps<2&&p.vy>30&&!!destination&&(gap(destination,p.x)>10||p.y+p.r>destination.y-35);
-        p.aiJump=!p.aiDrop&&p.aiJumpDelay<=0&&((launch&&!descend)||climb||recover);
-        if(p.aiJump)p.aiJumpDelay=.23;
+        const recover=!p.grounded&&p.jumps<2&&p.vy>30&&!!destination&&(gap(destination,p.x)>10||p.y>destination.y-skill.recovery);
+        const dodge=p.grounded&&support&&destination?.id===support.id&&target&&Math.abs(target.x-p.x)<135&&this.random()<skill.dodge;
+        p.aiJump=!p.aiDrop&&p.aiJumpDelay<=0&&((launch&&!descend)||climb||recover||dodge);
+        if(p.aiJump)p.aiJumpDelay=skill.jumpDelay;
         const dx=target?target.x-p.x:0,dy=target?Math.abs(target.y-p.y):Infinity;
         const landing=support||destination;
         const dashSafe=landing&&p.x+Math.sign(dx)*135>landing.x+15&&p.x+Math.sign(dx)*135<landing.x+landing.w-15;
-        p.aiDash=!!target&&!p.aiDrop&&Math.abs(dx)>5&&Math.abs(dx)<130&&dy<48&&dashSafe&&this.random()>.15;
-        if(p.aiDash)p.aiX=Math.sign(dx);
+        p.aiDash=!!target&&!p.aiDrop&&Math.abs(dx)>5&&Math.abs(dx)<130&&dy<48&&dashSafe&&this.random()>1-(this.botDifficulties[p.id]==='normal'?.85:skill.dashChance);
+        if(p.aiDash)p.aiX=Math.sign(dx)*skill.control;
       }
       const input={x:p.aiX,jump:p.aiJump,dash:p.aiDash,drop:p.aiDrop};
       p.aiJump=false;p.aiDash=false;p.aiDrop=false;return input;
@@ -231,3 +233,6 @@
 // Updated: 2026-11-03 America/New_York. Changed lines 2, 25, 80, 124, 135-153. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
 
 // Updated: 2026-11-04 America/New_York. Changed line 2, round AI destination initialization and lines 28-87: breadth-first live platform/portal routes, reachable intermediate jumps, persistent airborne landing targets, velocity-aware steering, controlled descent and supported-surface dash margins. Purpose: fix bot pathfinding; upstream: existing maps, jump/motion/portal physics and bot controls; environment: browser / Node 24.
+
+// Updated: 2026-11-04 America/New_York. Changed lines 29, 32, 38, 47, 49, 51, 54, 57-58. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
+// Integration: 2026-11-04 America/New_York. Route decisions retain per-slot reaction/jitter, control, target lead, recovery margin, jump delay, dodge and dash probability. Upstream: incoming bot profiles; environment: browser / Node 24.
