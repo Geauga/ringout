@@ -1,5 +1,5 @@
 // maps.js
-// Request: Add advanced platformer presets while preserving editable maps and shared validation.
+// Request: Add paired portals, editable endpoints and a ready-made portal stage.
 (function(root){
   'use strict';
   const presets=[
@@ -49,6 +49,13 @@
       {id:'left-spire',x:260,y:150,w:100,h:18},{id:'right-spire',x:640,y:150,w:100,h:18},
     ]},
   ];
+  presets.push({id:'portal-junction',name:'Portal Junction',platforms:[
+    {id:'floor',x:100,y:600,w:800,h:26},
+    {id:'left-gate',x:140,y:440,w:200,h:18,portal:true},
+    {id:'right-gate',x:660,y:280,w:200,h:18,portal:true,motion:{axis:'x',distance:-100,period:6}},
+    {id:'bridge',x:400,y:420,w:200,h:18,dropThrough:true},
+    {id:'summit',x:400,y:160,w:200,h:18},
+  ]});
   function validate(input){
     if(!input||typeof input!=='object')throw new Error('Provide a map.');
     const name=typeof input.name==='string'?input.name.trim():'';
@@ -62,6 +69,8 @@
       if(p.x<40||p.w<90||p.w>900||p.x+p.w>960||p.y<140||p.y>620)throw new Error('Keep platforms inside the workspace (x 40–960, y 140–620; width at least 90).');
       if(p.dropThrough!==undefined&&typeof p.dropThrough!=='boolean')throw new Error('Drop-through must be on or off.');
       if(p.jumpPad!==undefined&&typeof p.jumpPad!=='boolean')throw new Error('Jump pad must be on or off.');
+      if(p.portal!==undefined&&typeof p.portal!=='boolean')throw new Error('Portal must be on or off.');
+      if(p.portal&&p.jumpPad)throw new Error('Use a portal or a jump pad on a platform, rather than both.');
       let motion=null;
       if(p.motion!=null){
         const m=p.motion;
@@ -71,9 +80,11 @@
       if(p.id==='floor'&&(p.dropThrough||motion))throw new Error('The main floor must stay still and cannot allow dropping through.');
       const endX=p.x+(motion?.axis==='x'?motion.distance:0),endY=p.y+(motion?.axis==='y'?motion.distance:0);
       if(endX<40||endX+p.w>960||endY<140||endY>620)throw new Error('Keep the entire movement path inside the workspace.');
-      return{id:p.id,x:p.x,y:p.y,w:p.w,h:p.id==='floor'?26:18,dropThrough:p.dropThrough??false,jumpPad:p.jumpPad??false,motion};
+      return{id:p.id,x:p.x,y:p.y,w:p.w,h:p.id==='floor'?26:18,dropThrough:p.dropThrough??false,jumpPad:p.jumpPad??false,portal:p.portal??false,motion};
     });
     const floor=platforms.find(p=>p.id==='floor');
+    const gates=platforms.filter(p=>p.portal);
+    if(gates.length!==0&&gates.length!==2)throw new Error('Select exactly two portal platforms to make a linked pair.');
     if(!floor||floor.w<420||floor.y<440)throw new Error('Keep a main floor at least 420 wide, between y 440 and 620.');
     for(const p of platforms){
       const bottom=p.y+Math.max(0,p.motion?.axis==='y'?p.motion.distance:0);
@@ -90,10 +101,13 @@
   }
   function spawns(map){const floor=map.platforms.find(p=>p.id==='floor');return[-205,-75,75,205].map(offset=>({x:floor.x+floor.w/2+offset*floor.w/620,y:floor.y-21}));}
   function padBounds(platform){const w=Math.min(80,platform.w);return{x:platform.x+(platform.w-w)/2,w};}
-  const api={presets,validate,spawns,padBounds};
+  function portalCenter(platform){return{x:platform.x+platform.w/2,y:platform.y-26};}
+  const api={presets,validate,spawns,padBounds,portalCenter};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RingoutMaps=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 // Purpose: Safe, reachable custom stages. Upstream: original High Ground geometry and custom-map request. Environment: browser, Node and bundled Workers. Generated: 2026-09-18 America/New_York. New file, all lines.
 // Updated: 2026-09-18 America/New_York. Added Moving Grounds and validated optional dropThrough/motion fields while preserving legacy map defaults; main floors remain stationary and solid. Final line ranges recorded in the work log.
 // Updated: 2026-10-03 America/New_York. Lines 10,23,33,52-53 add Spring Yard, validate optional jumpPad with legacy false default, and share centered pad bounds. Purpose: editable jump pads; upstream: custom-map geometry; environment: browser/Node/Workers.
 // Updated: 2026-10-09 America/New_York. Changed lines 2,13-50: add four advanced presets with alternate routes, 9-12 platforms, moving ledges and jump pads. Purpose: more complex ready-made stages; upstream: existing presets, motion/pad physics and custom-map validation; environment: browser/Node 24/Workers.
+
+// Updated: 2026-11-03 America/New_York. Changed lines 2, 52-58, 72-73, 83, 86-87, 104-105. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
