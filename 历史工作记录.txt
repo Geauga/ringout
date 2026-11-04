@@ -506,6 +506,14 @@ Validation: All 15 package.json test suites passed via direct Node child-process
 Execution/platform: Local Windows Git repository C:\Code\ringout, Node 24.22.1. No Colab/Drive runtime, remote publication, installed-game replacement, package ZIP rebuild or Site deployment.
 GitHub Timeline: 未 commit; implementation remains in the local working tree alongside preserved incoming edits. No commit or push performed for this request; no published history rewritten.
 
+## 2026-11-04 17:05 America/New_York
+Prompt: "review code and push".
+Actions: Reviewed latest GitHub name/knock changes at 74e2af7 in isolated codex/review-names-20261104 because the primary checkout acquired concurrent bot-direction edits. Found a reproducible mode-switch failure: assign Player 2 NOVA, then Player 1 BLUE (a valid unique lineup); sequential copying into a fresh engine incorrectly compares BLUE against Player 2's temporary default and throws. Copy the already validated complete custom-name configuration before rebuilding fighters, retaining entry validation and copying the array independently. Added regression coverage for repeated switches from both starting modes and subsequent match start.
+Files: game/game.js lines 80-81 and provenance footer; test-controls.cjs final name-transfer scenarios/footer; this append-only record. No bot edits, installed files, databases or generated archives staged.
+Validation: Regression failed before the fix with "Each player must have a unique name" and passed afterward. Build and all fourteen suites passed on Node 24.22.1, including 140 seeded matches, portals, score/replay/name/color/controller/editor checks and SQLite/migration/API/HTTP checks. Expected failure fixtures retained diagnostics. Build 185857 bytes; no browser, physical-controller, CI or ZIP rebuild verification claimed. git diff --check passed. An initial test append used a duplicated relative path and failed without editing anything; corrected it before reproducing the actual bug.
+Execution/platform: Isolated local Windows Git worktree C:\Users\danie\OneDrive\Documents\ChatGPT\2d game\.tmp\review-names-20261104. Primary dirty checkout and its prior package log are preserved. Attempted primary fast-forward aborted safely when concurrent engine changes appeared; no reset/stash/overwrite. Normal push targets Geauga/ringout main; no Site deployment or release update.
+GitHub Timeline: 未 commit for this isolated tested fix and log; preparing normal Geauga-authored commit/push from reviewed remote base 74e2af7. Concurrent local bot work remains separate.
+
 ## 2026-11-03 21:33 America/New_York
 Prompt: "build package".
 Actions: Rebuilt current pushed source 1d87a36754b54b6ad13b87a98dc0c83c0bba0ea0 and regenerated the portable Windows x64 package with the existing whitelist. Created clearly named release/RINGOUT-scoreboard-2026-11-03-Windows-x64.zip and matching SHA256 checksum alongside the compatibility RINGOUT-secure.zip. Includes damage scores, assists, ranked scoreboard, portal gameplay, custom colors, replays and the existing migration upgrade fix. Downloaded official pinned Node 24.21.0 and verified its SHA256/SQLite support. Extracted the actual finished ZIP into a fresh isolated directory and tested it with its bundled node.exe. Preserved installed games, saved maps/settings, old dated archives and existing hosted publication.
@@ -530,6 +538,12 @@ Validation: Combined build 185923 bytes and all fourteen suites passed, includin
 Execution/platform: Local Windows repository and existing Geauga/ringout GitHub main. No force push, history reset, user-data change, hosted Site deployment or ZIP rebuild.
 GitHub Timeline: 已 commit 未 push for feature f89ede4; normal integration resolution is 未 commit at this append. Preparing normal merge commit/push and exact remote SHA verification.
 
+## 2026-11-04 17:06 America/New_York
+Prompt: Complete reviewed name-switch fix and normal push while preserving concurrent bot work.
+Actions: Initial tested fix commit ca6b293 was rejected because bot-direction commits f89ede4/c06ca4b reached main. Normally merged origin/main; only work records conflicted. Verified both sides start with the same base and retained both full appended blocks. No runtime-source conflict or overwrite. Rebuilt and reran all fourteen suites on the combined source: all passed, including 120 bot-direction cases, 140 seeded matches and the new failing-before/fixed-after name-switch regression. Bundle 186362 bytes. No browser, CI, installed-package or Site update claimed.
+Files/platform: game/game.js and test-controls.cjs fix from ca6b293; preserved incoming bot source/test/docs; 历史工作记录.txt append-only resolution in isolated local Windows worktree .tmp/review-names-20261104. Original shared checkout untouched by this integration.
+GitHub Timeline: 已 commit 未 push for ca6b293 after the rejected push; validated merge is 未 commit at this append. Preparing normal merge commit/push and exact remote verification; no force push or history rewrite.
+
 ## 2026-11-04 17:05 America/New_York
 Prompt: Complete requested bot fix push.
 Actions/files: Normal integration committed as c06ca4bbfaef48292044f93d756237def5537c73 and pushed to Geauga/ringout main; this append records completion only.
@@ -544,3 +558,11 @@ Files: game/engine.js; REQUIREMENTS.md; README.md; test-engine.cjs; append-only 
 Validation: All 15 combined test suites passed after integration, including 120 keyboard-aligned bot dash angle checks, all four difficulty lineups across 40 new seeded matches, DOM/WebMCP configuration/locks, replay isolation, maps/API/database and fresh server/package checks. Bundle 189751 bytes. Normal Arena now retains the latest incoming keyboard-direction correction; Platformer behavior remains as previously verified. No real-browser visual or hosted CI/deployment success claimed.
 Execution/platform: Local Windows Git repository C:\Code\ringout, Node 24.22.1; existing GitHub Geauga/ringout main. Normal merge and normal push only; no force push, package ZIP rebuild or hosted Site deployment.
 GitHub Timeline: 已 commit 未 push for 0e080a6 at entry creation; preparing tested integration commit and normal push. Final exact remote result will be appended locally.
+
+## 2026-11-04 17:09:14 America/New_York
+Prompt: push bot difficulties (concurrent integration).
+Actions: First normal push was rejected because remote advanced through 4ddedb8 with a fighter-name mode-transfer fix. Fetched and merged it, retaining all history blocks and both appended browser-control test loops. Preserved the complete custom-name array transfer alongside bot difficulty/rule transfer and keyboard-aligned Arena dashes.
+Files: game/game.js; test-controls.cjs; append-only history. No unrelated historyworklog.txt, generated artifacts or untracked files staged.
+Validation: All 15 combined suites passed after this integration, including incoming mode-switch/name regression and bot difficulty UI/physics/replay checks. Final rebuilt bundle 190932 bytes. No new source changes after verification.
+Execution/platform: Local Windows C:\Code\ringout and approved GitHub Geauga/ringout main. Geauga commit identity; normal merge/push only.
+GitHub Timeline: 已 commit 未 push for difficulty 0e080a6 and first integration 57675b1; preparing final tested merge and retrying normal push.

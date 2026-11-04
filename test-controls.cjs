@@ -348,3 +348,21 @@ for(const mode of ['arena','platformer']){
 }
 
 // Updated: 2026-11-04 America/New_York. Changed lines 31, 325-348. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
+
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);
+  for(const [id,name] of [[1,'NOVA'],[0,'BLUE']]){
+    ui.get('name-'+id).value=name;ui.get('name-'+id).dispatch('change');
+    assert.equal(ui.snapshot().players[id].name,name);
+  }
+  const names=Array.from(ui.snapshot().players,p=>p.name);
+  for(const nextMode of ['platformer','arena',mode]){
+    assert.doesNotThrow(()=>ui.click('mode-'+nextMode),'copy names as a complete lineup');
+    assert.equal(ui.snapshot().gameMode,nextMode);
+    assert.deepEqual(Array.from(ui.snapshot().players,p=>p.name),names);
+    assert.deepEqual(Array.from(ui.snapshot().customNames),['BLUE','NOVA',null,null]);
+  }
+  ui.click('start');assert.deepEqual(Array.from(ui.snapshot().players,p=>p.name),names);
+  console.log('PASS:',mode,'overridden default names survive mode changes and match start');
+}
+// Updated: 2026-11-04 America/New_York. Added final name-transfer scenarios: preserve a valid complete lineup whose custom name matches another slot default. Purpose: prevent mode-switch errors; upstream: game.js and engine names; environment: Node 24 simulated DOM.
