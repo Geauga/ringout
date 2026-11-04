@@ -1,5 +1,5 @@
 // engine.js
-// Request: Add independent Easy/Normal/Hard bot decisions while preserving existing fighter stats and scoring.
+// Request: Add per-slot bot difficulties while retaining keyboard-aligned Arena dashes, fighter names and scoring.
 (function (root) {
   'use strict';
   const SKINS = [
@@ -119,7 +119,9 @@
         if(q){const d=Math.hypot(q.x-p.x,q.y-p.y);const edge=Math.hypot(p.x-500,p.y-354);if(edge<this.radius-skill.arenaMargin){x=q.x+q.vx*skill.lead-p.x+(500-q.x)*.15;y=q.y+q.vy*skill.lead-p.y+(354-q.y)*.15;}p.aiDash=d<130&&d>34&&edge<this.radius-52&&this.random()>1-skill.dashChance;}
         const len=Math.hypot(x,y)||1;p.aiX=x/len*skill.control;p.aiY=y/len*skill.control;
       }
-      const input={x:p.aiX,y:p.aiY,dash:p.aiDash};p.aiDash=false;return input;
+      const input={x:p.aiX,y:p.aiY,dash:p.aiDash};
+      if(input.dash){const angle=Math.round(Math.atan2(input.y,input.x)/(Math.PI/4))*Math.PI/4;input.x=Math.round(Math.cos(angle));input.y=Math.round(Math.sin(angle));}
+      p.aiDash=false;return input;
     }
     step(dt, inputs=[]) {
       dt=clamp(dt,0,1/30);if(['paused','lobby','matchOver'].includes(this.phase)) return;
@@ -186,6 +188,8 @@
 
 // Updated: 2026-10-11 America/New_York. Changed lines 2,21,27,33-41,120,128-129. Changes: constructor/makeRound retain four custom colors; setSkin resets its override; setColor validates lobby/player/full hex atomically; snapshot copies overrides and player colors. Purpose: independent custom fighter colors; upstream: preset skins and existing round lifecycle; environment: browser / Node 24.
 // Updated: 2026-11-03 America/New_York. Changed lines 2,21,27,53-54,59-76,115,130-138: add match damage/assist totals, actual capped damage accounting, recent-hit contributors, shared elimination credit and isolated snapshots. Purpose: combat scoreboard scoring; upstream: existing collisions, KO attribution and match lifecycle; environment: browser / Node 24.
+// Updated: 2026-11-04 America/New_York. Changed lines 2,86-88: snap Arena bot dash input to the nearest of eight keyboard directions before shared normalization, retaining ordinary movement and human analog input. Purpose: fair bot dash directions; upstream: existing bot steering and shared dash physics; environment: browser / Node 24.
+
 // Updated: 2026-11-03 America/New_York. Added PRESET_NAMES, safety checks, setName/resetName, and knock counter tracking.
 
 // Updated: 2026-11-04 America/New_York. Changed lines 30-34, 36, 76, 82, 85, 87, 113, 116, 119-120, 178. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.

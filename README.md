@@ -61,3 +61,5 @@ Execution location: local Windows Git repository. Gameplay and replay recording 
 ## Community Standards
 
 Please refer to the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) to review our community standards.
+
+Arena bots aim dashes in the same eight compass directions available on a keyboard. Their normal steering stays continuous; controller and touch players retain analog aiming.
