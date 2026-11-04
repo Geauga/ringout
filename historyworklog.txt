@@ -26,3 +26,7 @@ Major Changes:
 
 2026-11-03 21:26:05 - Added per-player knock counter tracking dash and bump hits alongside KOs across ArenaEngine, PlatformerEngine, replay frames, scoreboard HUD, and match-over screen. Added lobby fighter name selector with preset names, custom name text input, and safety validation (length limits, character whitelist, profanity/leetspeak filter, and duplicate name prevention) with regression tests in test-colors.cjs and test-controls.cjs.
 2026-11-03 21:27:10 - Committed and pushed knock counter and fighter name selector with safety checks to GitHub (origin/main).
+2026-11-03 21:39:00 - Rebuilt server bundle (scripts/build.mjs) and packaged standalone release archive (scripts/package.ps1 -> release/RINGOUT-secure.zip).
+2026-11-04 17:31:25 - Built and verified portable release packages in c:\Code\ringout\release (RINGOUT-secure/, RINGOUT-secure.zip, RINGOUT-knocks-names-2026-11-04-Windows-x64.zip, and RINGOUT-knocks-names-2026-11-04-Windows-x64.sha256.txt) with scripts/test-package.mjs.
+
+2026-11-04 17:54:00 - Added Teams mode (Team Alpha vs Team Bravo, friendly-fire protection, team-aware bots, team scoring and victory announcements) and adjustable player count (2, 3, or 4 players) to both Arena and Platformer modes in game/engine.js, game/platformer.js, game/replay.js, game/index.html, game/game.js, game/style.css, and test-controls.cjs; pushed to GitHub and rebuilt release packages in c:\Code\ringout\release.

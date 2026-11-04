@@ -1,9 +1,10 @@
 // game.js
-// Request: Add per-slot lobby bot difficulty controls with mode retention and match/replay locks.
+// Request: Add Teams mode and adjustable player count (2-4) with mode retention and match/replay locks.
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),canvas=$('arena'),ctx=canvas.getContext('2d');
   const PRESET_NAMES=typeof PLAYER_PRESET_NAMES!=='undefined'?PLAYER_PRESET_NAMES:['ACE','APEX','BLAZE','BOLT','COMET','ECHO','FROST','GHOST','NOVA','ORBIT','PULSE','ROGUE','SHADOW','SPARK','STORM','TITAN','VIPER','VORTEX'];
+  const TEAM_LABELS=typeof TEAM_NAMES!=='undefined'?TEAM_NAMES:['ALPHA','BRAVO'];
   let engine=new ArenaEngine();
   let selectedMap=RingoutMaps.presets[0];
   const recorder=new RingoutReplay.Recorder();
@@ -20,9 +21,10 @@
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pads=()=>Array.from(navigator.getGamepads?.()||[]).filter(p=>p&&p.connected&&p.mapping==='standard'&&p.index<4);
   function syncPlayerColor(id){
-    const color=engine.players[id].color;
+    const skin=PLAYER_SKINS[engine.skins[id]]||PLAYER_SKINS[id];
+    const color=engine.customColors[id]||skin.color;
     $('row-'+id).style.setProperty('--player',color);
-    $('skin-desc-'+id).textContent=engine.customColors[id]?'Custom color '+color.toUpperCase():PLAYER_SKINS[engine.skins[id]].description;
+    $('skin-desc-'+id).textContent=engine.customColors[id]?'Custom color '+color.toUpperCase():skin.description;
     $('color-'+id).value=color;$('hex-'+id).value=color.toUpperCase();
     $('hex-'+id).setAttribute('aria-invalid','false');$('color-error-'+id).textContent='';
   }
@@ -32,7 +34,7 @@
     syncPlayerColor(id);hudSignature='';updateUI();
   }
   function syncPlayerName(id){
-    const name=engine.players[id].name,custom=engine.customNames[id],skin=PLAYER_SKINS[engine.skins[id]]||PLAYER_SKINS[id];
+    const skin=PLAYER_SKINS[engine.skins[id]]||PLAYER_SKINS[id],custom=engine.customNames[id],name=custom||skin.name;
     const select=$('name-select-'+id);
     if(select.options?.[0])select.options[0].textContent=`Skin (${skin.name})`;
     select.value=!custom?'':PRESET_NAMES.includes(custom)?custom:'custom';
@@ -51,11 +53,24 @@
     try{engine.setName(id,value);}catch(error){syncPlayerName(id);$('name-'+id).setAttribute('aria-invalid','true');$('name-error-'+id).textContent=error.message;return;}
     syncPlayerName(id);hudSignature='';updateUI();
   }
+  function toggleTeams(){
+    if(engine.phase!=='lobby'||replayPlayer)throw new Error('Return to the lobby before changing team mode.');
+    const next=!engine.teamMode;
+    $('team-mode').value=next?'teams':'ffa';
+    if(next&&new Set(engine.teams.slice(0,engine.playerCount)).size<2){
+      const balanced=[0,1,0,1];
+      for(let i=0;i<4;i++)$('team-'+i).value=String(balanced[i]);
+    }
+    configure();applyModeUI();updateUI();return matchSnapshot();
+  }
   function setupUI(){
-    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i]; return `<div class="player-row" id="row-${i}" style="--player:${engine.players[i].color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; min-height: 1.2em;">${skin.description}</div><div class="player-name-controls"><label for="name-select-${i}">Name</label><select id="name-select-${i}" class="name-select" aria-label="Player ${i+1} preset name"><option value="">Skin (${skin.name})</option>${PRESET_NAMES.map(n => `<option value="${n}">${n}</option>`).join('')}<option value="custom">Custom…</option></select><input id="name-${i}" type="text" maxlength="12" placeholder="Fighter name" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} custom name" aria-describedby="name-error-${i}"></div><span id="name-error-${i}" class="name-error" role="status"></span><div class="player-color-controls"><label for="hex-${i}">Hex</label><input id="color-${i}" type="color" aria-label="Player ${i+1} color picker"><input id="hex-${i}" type="text" maxlength="7" placeholder="#RRGGBB" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} hex color" aria-describedby="color-error-${i}"></div><span id="color-error-${i}" class="color-error" role="status"></span><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><label id="difficulty-row-${i}" class="bot-difficulty" for="difficulty-${i}">Bot difficulty<select id="difficulty-${i}" aria-label="Player ${i+1} bot difficulty"><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></label><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
+    $('lineup').innerHTML=[0,1,2,3].map(i=>{const skin = PLAYER_SKINS[engine.skins[i]]||PLAYER_SKINS[i], color = engine.customColors[i]||skin.color; return `<div class="player-row" id="row-${i}" style="--player:${color}"><span class="fighter-avatar" aria-hidden="true"></span><div class="player-details"><div class="player-topline"><select id="skin-${i}" class="skin-select" aria-label="Player ${i+1} skin">${PLAYER_SKINS.map((s, idx) => `<option value="${idx}" ${idx === engine.skins[i] ? 'selected' : ''}>${s.name[0]+s.name.slice(1).toLowerCase()}</option>`).join('')}</select><span class="player-index">P${i+1}</span></div><div class="skin-desc" id="skin-desc-${i}" style="font-size: 11px; color: #888; margin-top: 2px; min-height: 1.2em;">${skin.description}</div><div class="player-name-controls"><label for="name-select-${i}">Name</label><select id="name-select-${i}" class="name-select" aria-label="Player ${i+1} preset name"><option value="">Skin (${skin.name})</option>${PRESET_NAMES.map(n => `<option value="${n}">${n}</option>`).join('')}<option value="custom">Custom…</option></select><input id="name-${i}" type="text" maxlength="12" placeholder="Fighter name" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} custom name" aria-describedby="name-error-${i}"></div><span id="name-error-${i}" class="name-error" role="status"></span><div class="player-color-controls"><label for="hex-${i}">Hex</label><input id="color-${i}" type="color" aria-label="Player ${i+1} color picker"><input id="hex-${i}" type="text" maxlength="7" placeholder="#RRGGBB" autocomplete="off" spellcheck="false" aria-label="Player ${i+1} hex color" aria-describedby="color-error-${i}"></div><span id="color-error-${i}" class="color-error" role="status"></span><select id="player-${i}" aria-label="Player ${i+1} controls"><option value="keyboard">Keyboard</option><option value="bot">Bot – ready to rumble</option></select><label id="difficulty-row-${i}" class="bot-difficulty" for="difficulty-${i}">Bot difficulty<select id="difficulty-${i}" aria-label="Player ${i+1} bot difficulty"><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></label><label id="team-row-${i}" class="player-team-row" for="team-${i}" hidden>Team<select id="team-${i}" aria-label="Player ${i+1} team"><option value="0">Team Alpha</option><option value="1">Team Bravo</option></select></label><div class="control-hint" id="hint-${i}"></div></div></div>`;}).join('');
+    $('player-count').value=String(engine.playerCount);
+    $('team-mode').value=engine.teamMode?'teams':'ffa';
     for(let i=0;i<4;i++){
       $('player-'+i).value=engine.modes[i];$('player-'+i).addEventListener('change',configure);
       $('difficulty-'+i).value=engine.botDifficulties[i];$('difficulty-'+i).addEventListener('change',configure);
+      $('team-'+i).value=String(engine.teams[i]);$('team-'+i).addEventListener('change',configure);
       $('skin-'+i).addEventListener('change',e=>{engine.setSkin(i,parseInt(e.target.value,10));syncPlayerColor(i);syncPlayerName(i);hudSignature='';updateUI();});
       $('name-select-'+i).addEventListener('change',()=>choosePresetName(i,$('name-select-'+i).value));
       for(const event of ['input','change']){
@@ -65,11 +80,34 @@
       }
       syncPlayerColor(i);syncPlayerName(i);
     }
+    $('player-count').addEventListener('change',()=>{
+      if($('team-mode').value==='teams'){
+        const count=Number($('player-count').value)||4;
+        const currentTeams=[0,1,2,3].map(i=>Number($('team-'+i).value));
+        if(new Set(currentTeams.slice(0,count)).size<2){
+          const balanced=[0,1,0,1];
+          for(let i=0;i<4;i++)$('team-'+i).value=String(balanced[i]);
+        }
+      }
+      configure();applyModeUI();updateUI();
+    });
+    $('team-mode').addEventListener('change',()=>{
+      if($('team-mode').value==='teams'){
+        const count=Number($('player-count').value)||engine.playerCount;
+        const currentTeams=[0,1,2,3].map(i=>Number($('team-'+i).value));
+        if(new Set(currentTeams.slice(0,count)).size<2){
+          const balanced=[0,1,0,1];
+          for(let i=0;i<4;i++)$('team-'+i).value=String(balanced[i]);
+        }
+      }
+      configure();applyModeUI();updateUI();
+    });
     $('win-target').addEventListener('change',configure);
-      $('shrink-time').addEventListener('change',configure);
-      $('last-standing').addEventListener('change',configure);
+    $('shrink-time').addEventListener('change',configure);
+    $('last-standing').addEventListener('change',configure);
     $('mode-arena').addEventListener('click',()=>setGameMode('arena'));
     $('mode-platformer').addEventListener('click',()=>setGameMode('platformer'));
+    $('mode-teams').addEventListener('click',toggleTeams);
     configure();applyModeUI();drawScores();
   }
   function setGameMode(mode){
@@ -81,16 +119,18 @@
     // Preserve the already validated lineup without transient collisions with default names.
     next.customNames=[...engine.customNames];next.makeRound();
     if(mode==='platformer')next.setMap(selectedMap);
-    next.configure(engine.modes,engine.target,engine.shrinkTime,engine.lastStanding,engine.botDifficulties);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
+    next.configure(engine.modes,engine.target,engine.shrinkTime,engine.lastStanding,engine.botDifficulties,engine.playerCount,engine.teamMode,engine.teams);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
   }
   function matchSnapshot(){return {...engine.snapshot(),gameMode:platforming()?'platformer':'arena',replay:{available:!!recorder.latest,watching:!!replayPlayer,time:replayPlayer?.time||0,duration:recorder.latest?.duration||0,playing:!!replayPlayer?.playing,speed:replayPlayer?.speed||1}};}
   function applyModeUI(){
-    const p=platforming();document.body.classList.toggle('platformer-mode',p);
-    $('mode-arena').setAttribute('aria-pressed',String(!p));$('mode-platformer').setAttribute('aria-pressed',String(p));
+    const p=platforming(),t=engine.teamMode,countWord=['TWO','THREE','FOUR'][engine.playerCount-2]||'FOUR';
+    document.body.classList.toggle('platformer-mode',p);
+    document.body.classList.toggle('teams-mode',t);
+    $('mode-arena').setAttribute('aria-pressed',String(!p));$('mode-platformer').setAttribute('aria-pressed',String(p));$('mode-teams').setAttribute('aria-pressed',String(t));
     $('stage-name').textContent=p?engine.mapDefinition.name.toUpperCase():'THE DROP ZONE';$('stage-number').textContent=p?'02':'01';mapUI?.setMode(p);
-    $('overlay-kicker').textContent=p?'JUMP IN. KNOCK THEM OUT.':'FOUR ENTER. ONE STAYS.';
-    $('overlay-title').innerHTML=p?'TAKE THE<br><em>HIGH GROUND.</em>':'LAST ONE<br><em>STANDING.</em>';
+    $('overlay-kicker').textContent=p?(t?'TEAM PLATFORMER · KNOCK THEM OUT.':'JUMP IN. KNOCK THEM OUT.'):(t?'TWO TEAMS ENTER. ONE TEAM STAYS.':`${countWord} ENTER. ONE STAYS.`);
+    $('overlay-title').innerHTML=p?(t?'HOLD THE<br><em>HIGH GROUND.</em>':'TAKE THE<br><em>HIGH GROUND.</em>'):(t?'LAST TEAM<br><em>STANDING.</em>':'LAST ONE<br><em>STANDING.</em>');
     $('overlay-description').innerHTML=p?'Jump between platforms. Dash into rivals.<br>Use your second jump to make it back.':'Bump, dash, and send your friends flying.<br>Just don’t get too close to the edge.';
     $('shrink-rule').textContent=p?'Platforms shrink':'Arena shrinks';
     $('mode-tip').innerHTML=p?'<strong>Save a jump for the way back.</strong>Tap jump again in midair to recover. Dash launches rivals sideways.':'<strong>Give them a little nudge.</strong>Dash into rivals to launch them. More damage means more knockback.';
@@ -107,34 +147,58 @@
     $('help-description').textContent=(p?'Jump between one-way platforms and dash into rivals. Choose a map or open Map editor in the lobby to build your own. Gold jump pads launch you upward and refill both air jumps. Moving ledges carry you; cyan ledges marked ↓ let you press Down to drop through. Release Down before dropping through another ledge. Tap jump a second time in midair to recover, and land to restore both jumps. The main floor cannot be dropped through.':'Move around the platform and dash into opponents to knock them into the void. Your damage increases when you get hit, making you easier to launch.')+' '+shrinkAdvice;
   }
   function syncBotControls(locked=engine.phase!=='lobby'||!!replayPlayer){
-    for(let i=0;i<4;i++){const bot=engine.modes[i]==='bot';$('difficulty-'+i).value=engine.botDifficulties[i];$('difficulty-'+i).disabled=locked||!bot;$('difficulty-row-'+i).hidden=!bot;}
+    for(let i=0;i<4;i++){
+      const active=i<engine.playerCount;
+      const bot=engine.modes[i]==='bot';
+      $('row-'+i).hidden=!active;
+      $('row-'+i).classList.toggle('inactive-slot',!active);
+      $('difficulty-'+i).value=engine.botDifficulties[i];
+      $('difficulty-'+i).disabled=locked||!bot||!active;
+      $('difficulty-row-'+i).hidden=!bot;
+      $('team-'+i).value=String(engine.teams[i]);
+      $('team-'+i).disabled=locked||!engine.teamMode||!active;
+      $('team-row-'+i).hidden=!engine.teamMode;
+    }
+    $('player-count').value=String(engine.playerCount);
+    $('team-mode').value=engine.teamMode?'teams':'ffa';
+    $('mode-teams').setAttribute('aria-pressed',String(!!engine.teamMode));
+    $('lineup-count').textContent=`0${engine.playerCount} / 04`;
   }
   function configure(){
     if(replayPlayer){syncBotControls();return;}
     const modes=[0,1,2,3].map(i=>$(`player-${i}`).value),target=Number($('win-target').value),shrinkTime=Number($('shrink-time').value),lastStanding=$('last-standing').value;
-    try{engine.configure(modes,target,shrinkTime,lastStanding,[0,1,2,3].map(i=>$('difficulty-'+i).value));}catch(error){announce(error.message,4);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];syncBotControls();return;}
+    const playerCount=Number($('player-count').value)||engine.playerCount;
+    const teamMode=$('team-mode').value==='teams';
+    const teams=[0,1,2,3].map(i=>Number($('team-'+i).value));
+    try{engine.configure(modes,target,shrinkTime,lastStanding,[0,1,2,3].map(i=>$('difficulty-'+i).value),playerCount,teamMode,teams);}catch(error){announce(error.message,4);for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];syncBotControls();return;}
     syncBotControls();
     for(let i=0;i<4;i++)$(`hint-${i}`).textContent=engine.modes[i]==='keyboard'?(platforming()?platformHints[i]:hints[i]):engine.modes[i]==='bot'?`${engine.botDifficulties[i].toUpperCase()} BOT · ${engine.botDifficulties[i]==='easy'?'RELAXED PACE':engine.botDifficulties[i]==='hard'?'FAST REACTIONS':'BALANCED'}`:platforming()?'A / ✕ JUMP · X / □ DASH':'LEFT STICK  /  A or ✕';
     $('touch-controls').hidden=engine.modes[0]!=='keyboard';
-    const humans=engine.modes.filter(m=>m!=='bot').length;
-    $('overlay-hint').textContent=`${humans} HUMAN${humans===1?'':'S'} + ${4-humans} BOT${4-humans===1?'':'S'} · FIRST TO ${target}`;
-    drawScores();updateRuleHelp();
+    const activeModes=engine.modes.slice(0,engine.playerCount);
+    const humans=activeModes.filter(m=>m!=='bot').length,bots=engine.playerCount-humans;
+    $('overlay-hint').textContent=`${humans} HUMAN${humans===1?'':'S'} + ${bots} BOT${bots===1?'':'S'}${engine.teamMode?' · TEAMS':''} · FIRST TO ${target}`;
+    hudSignature='';drawScores();updateRuleHelp();
   }
   function drawScores(){
     const engine=view();
-    $('scoreboard').innerHTML=engine.players.map((p,i)=>{const knocks=engine.knocks?.[i]??0;return `<div class="score-card ${!p.alive?'out':''}" style="--player:${p.color}" aria-label="Player ${i+1} ${p.name}, ${engine.scores[i]} round wins, ${knocks} knocks, ${engine.knockouts[i]} knockouts, ${engine.assists?.[i]??0} assists, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">P${i+1} ${p.name}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<engine.scores[i]?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span><span class="score-mini-stats">${knocks} KNOCKS · ${engine.knockouts[i]} KOs · ${engine.assists?.[i]??0} A</span></div>`;}).join('');
-    const rows=engine.players.map((p,i)=>({p,wins:engine.scores[i],kos:engine.knockouts[i],assists:engine.assists?.[i]??0,damage:engine.damageDealt?.[i]??0})).sort((a,b)=>b.wins-a.wins||b.kos-a.kos||b.assists-a.assists||b.damage-a.damage||a.p.id-b.p.id);
+    $('scoreboard').setAttribute('data-players',String(engine.players.length));
+    $('scoreboard').innerHTML=engine.players.map((p,i)=>{
+      const knocks=engine.knocks?.[p.id]??0,team=p.team??engine.teams?.[p.id]??0,teamLabel=TEAM_LABELS[team],wins=engine.teamMode?(engine.teamScores?.[team]??engine.scores[p.id]):engine.scores[p.id];
+      return `<div class="score-card ${!p.alive?'out':''}" data-team="${engine.teamMode?team:''}" style="--player:${p.color}" aria-label="Player ${p.id+1} ${p.name}${engine.teamMode?`, Team ${teamLabel}`:''}, ${wins} round wins, ${knocks} knocks, ${engine.knockouts[p.id]} knockouts, ${engine.assists?.[p.id]??0} assists, ${p.alive?p.damage+' percent damage':'eliminated'}"><span class="mini-fighter" aria-hidden="true"></span><div class="score-content"><div class="score-name">P${p.id+1} ${p.name}${engine.teamMode?` <span class="team-badge team-${team}">${teamLabel}</span>`:''}</div><div class="score-pips">${Array.from({length:engine.target},(_,n)=>`<span class="pip ${n<wins?'won':''}"></span>`).join('')}</div></div><span class="damage">${p.alive?p.damage+'%':'OUT'}</span><span class="score-mini-stats">${knocks} KNOCKS · ${engine.knockouts[p.id]} KOs · ${engine.assists?.[p.id]??0} A</span></div>`;
+    }).join('');
+    const rows=engine.players.map(p=>({p,team:p.team??engine.teams?.[p.id]??0,wins:engine.scores[p.id],kos:engine.knockouts[p.id],assists:engine.assists?.[p.id]??0,damage:engine.damageDealt?.[p.id]??0})).sort((a,b)=>b.wins-a.wins||b.kos-a.kos||b.assists-a.assists||b.damage-a.damage||a.p.id-b.p.id);
     let rank=1;
     $('match-score-rows').innerHTML=rows.map((row,i)=>{
       if(i&&['wins','kos','assists','damage'].some(key=>row[key]!==rows[i-1][key]))rank=i+1;
-      return `<tr data-player="${row.p.id}" class="${engine.phase==='matchOver'&&row.wins>=engine.target?'match-winner':''}" style="--player:${row.p.color}"><td class="match-rank">${rank}</td><th scope="row"><span class="score-color" aria-hidden="true"></span><span>P${row.p.id+1} ${row.p.name}</span></th><td>${row.wins}</td><td>${row.kos}</td><td>${row.assists}</td><td>${row.damage}</td></tr>`;
+      const isWinner=engine.phase==='matchOver'&&(engine.teamMode?engine.roundWinningTeam===row.team:row.wins>=engine.target);
+      return `<tr data-player="${row.p.id}" class="${isWinner?'match-winner':''}" style="--player:${row.p.color}"><td class="match-rank">${rank}</td><th scope="row"><span class="score-color" aria-hidden="true"></span><span>P${row.p.id+1} ${row.p.name}${engine.teamMode?` <span class="team-badge team-${row.team}">${TEAM_LABELS[row.team]}</span>`:''}</span></th><td>${row.wins}</td><td>${row.kos}</td><td>${row.assists}</td><td>${row.damage}</td></tr>`;
     }).join('');
     $('scoreboard-state').textContent=replayPlayer?'RECORDED TOTALS':engine.phase==='matchOver'?'FINAL TOTALS':engine.phase==='lobby'?'NEW MATCH':`ROUND ${engine.round} TOTALS`;
   }
-  function lockSetup(locked){syncBotControls(locked);for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('name-select-'+i).disabled=locked;$('name-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
+  function lockSetup(locked){syncBotControls(locked);for(let i=0;i<4;i++){$('player-'+i).disabled=locked;$('skin-'+i).disabled=locked;$('name-select-'+i).disabled=locked;$('name-'+i).disabled=locked;$('color-'+i).disabled=locked;$('hex-'+i).disabled=locked;}$('mode-arena').disabled=locked;$('mode-platformer').disabled=locked;$('mode-teams').disabled=locked;$('player-count').disabled=locked;$('team-mode').disabled=locked;$('win-target').disabled=locked;$('shrink-time').disabled=locked;$('last-standing').disabled=locked;$('reset').hidden=!locked||!!replayPlayer;$('pause').disabled=!locked||!!replayPlayer;mapUI?.setLocked(locked);}
   function resetInput(){keys.clear();touch={x:0,y:0,dash:false,jump:false};$('touch-stick').style.transform='';}
   function controllersReady(){
-    const connected=pads();const missing=engine.modes.find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
+    const connected=pads();const missing=engine.modes.slice(0,engine.playerCount).find(m=>m.startsWith('gamepad')&&!connected.some(p=>`gamepad${p.index}`===m));
     if(missing){$('overlay-description').textContent='Reconnect your controller or choose different controls in the lobby.';return false;}
     return true;
   }
@@ -187,15 +251,28 @@
     if(e.type==='hit'){shake=Math.max(shake,e.power*7);for(let i=0;i<10+e.power*8;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*230;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.2,max:.45,color:'#f0f7c7',size:2+Math.random()*3});}tone(100,.1,'square',.025);}
     if(e.type==='eliminated'){const p=engine.players[e.id];if(e.lastHitBy !== undefined && e.lastHitBy !== null){announce(`${engine.players[e.lastHitBy].name} KNOCKED OUT ${p.name}!`,2);}else{announce(`${p.name} WENT OVER THE EDGE.`,2);}tone(170,.4,'triangle');for(let i=0;i<22;i++){const a=Math.random()*Math.PI*2;effects.push({x:e.x,y:e.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120,life:.7,max:.7,color:p.color,size:3});}}
     if(e.type==='shrink'){announce(platforming()?'THE PLATFORMS ARE SHRINKING. KEEP MOVING.':'THE ARENA IS SHRINKING. KEEP MOVING.',3);tone(260,.35,'triangle');}
-    if(e.type==='roundOver'){announce(e.draw?'DOUBLE KNOCKOUT. NO POINTS THIS ROUND.':`${engine.players[e.winner].name} TAKES ROUND ${engine.round}!`,2.7);tone(540,.25,'triangle');}
+    if(e.type==='roundOver'){announce(e.draw?'DOUBLE KNOCKOUT. NO POINTS THIS ROUND.':engine.teamMode&&e.winningTeam!==null&&e.winningTeam!==undefined?`TEAM ${TEAM_LABELS[e.winningTeam]} (${engine.players[e.winner].name}) TAKES ROUND ${engine.round}!`:`${engine.players[e.winner].name} TAKES ROUND ${engine.round}!`,2.7);tone(540,.25,'triangle');}
     if(e.type==='matchOver'){
-      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;$('overlay-kicker').textContent='WE HAVE A WINNER';$('overlay-title').innerHTML=`${engine.players[e.winner].name}<br><em>WINS IT.</em>`;$('overlay-description').textContent=`${engine.scores[e.winner]} round wins · ${engine.knocks[e.winner]} knocks · ${engine.knockouts[e.winner]} KOs. The arena has a new champion.`;$('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
-      for(let i=0;i<90;i++)effects.push({x:500,y:240,vx:(Math.random()-.5)*600,vy:-Math.random()*350,life:2+Math.random()*2,max:4,color:engine.players[i%4].color,size:3+Math.random()*3,gravity:140});
+      lockSetup(true);$('pause').disabled=true;document.body.classList.remove('playing');$('overlay').hidden=false;
+      if(engine.teamMode&&e.winningTeam!==null&&e.winningTeam!==undefined){
+        const winners=engine.players.filter(p=>p.team===e.winningTeam);
+        const teamKnocks=winners.reduce((sum,p)=>sum+(engine.knocks[p.id]||0),0);
+        const teamKos=winners.reduce((sum,p)=>sum+(engine.knockouts[p.id]||0),0);
+        $('overlay-kicker').textContent='TEAM VICTORY';
+        $('overlay-title').innerHTML=`TEAM ${TEAM_LABELS[e.winningTeam]}<br><em>WINS IT.</em>`;
+        $('overlay-description').textContent=`${winners.map(p=>p.name).join(' & ')} · ${engine.teamScores[e.winningTeam]} round wins · ${teamKnocks} knocks · ${teamKos} KOs. Team ${TEAM_LABELS[e.winningTeam]} rules the arena.`;
+      }else{
+        $('overlay-kicker').textContent='WE HAVE A WINNER';
+        $('overlay-title').innerHTML=`${engine.players[e.winner].name}<br><em>WINS IT.</em>`;
+        $('overlay-description').textContent=`${engine.scores[e.winner]} round wins · ${engine.knocks[e.winner]} knocks · ${engine.knockouts[e.winner]} KOs. The arena has a new champion.`;
+      }
+      $('start').innerHTML='RUN IT BACK <span aria-hidden="true">↗</span>';$('overlay-hint').textContent='SAME LINEUP. FRESH GRUDGES.';tone(880,.55,'triangle');
+      for(let i=0;i<90;i++)effects.push({x:500,y:240,vx:(Math.random()-.5)*600,vy:-Math.random()*350,life:2+Math.random()*2,max:4,color:engine.players[i%engine.players.length].color,size:3+Math.random()*3,gravity:140});
     }
   }}
   function updateUI(){
     const engine=view(),p=viewPlatforming();
-    const signature=JSON.stringify([engine.players.map(p=>[p.name,p.damage,p.alive]),engine.scores,engine.knockouts,engine.assists,engine.damageDealt,engine.knocks,engine.target,engine.phase,engine.round,!!replayPlayer]);if(signature!==hudSignature){drawScores();hudSignature=signature;}
+    const signature=JSON.stringify([engine.players.map(p=>[p.id,p.name,p.team,p.damage,p.alive]),engine.playerCount,engine.teamMode,engine.teams,engine.teamScores,engine.scores,engine.knockouts,engine.assists,engine.damageDealt,engine.knocks,engine.target,engine.phase,engine.round,!!replayPlayer]);if(signature!==hudSignature){drawScores();hudSignature=signature;}
     $('round-label').textContent=engine.phase==='lobby'?'WARM-UP':`ROUND ${String(engine.round).padStart(2,'0')}`;
     const sec=Math.floor(engine.elapsed);$('timer').textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
     $('arena-note').textContent=engine.shrinking?(p?'PLATFORMS SHRINKING':'ARENA SHRINKING'):engine.phase==='lobby'?(p?'DOUBLE JUMP TO RECOVER':'WATCH YOUR STEP'):engine.shrinkTime===999?'SHRINKING OFF':`SHRINKS IN ${Math.max(0,Math.ceil(engine.shrinkTime-engine.elapsed))} SEC`;
@@ -292,7 +369,9 @@
     // Facing eyes convey dash direction; the lower marker identifies the player's slot.
     const ex=p.fx*5,ey=p.fy*5;ctx.fillStyle='#253143';for(const offset of [-5,5]){ctx.beginPath();ctx.ellipse(ex+offset,ey-2,2.4,3.8,0,0,Math.PI*2);ctx.fill();}
     ctx.strokeStyle='#253143';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(ex,ey+3,4,.2,Math.PI-.2);ctx.stroke();
-    ctx.textAlign='center';ctx.font='700 11px "DM Sans", sans-serif';ctx.fillStyle='#edf1f7';ctx.shadowColor='#122030';ctx.shadowBlur=5;ctx.fillText(engine.customNames?.[p.id]?`P${p.id+1} · ${p.name}`:`P${p.id+1}`,0,-38);ctx.shadowBlur=0;
+    ctx.textAlign='center';ctx.font='700 11px "DM Sans", sans-serif';ctx.fillStyle='#edf1f7';ctx.shadowColor='#122030';ctx.shadowBlur=5;
+    const teamTag=engine.teamMode?` · ${TEAM_LABELS[p.team??engine.teams?.[p.id]??0][0]}`:'';
+    ctx.fillText(engine.customNames?.[p.id]?`P${p.id+1} · ${p.name}${teamTag}`:`P${p.id+1}${teamTag}`,0,-38);ctx.shadowBlur=0;
     if(engine.phase==='playing'&&p.alive){ctx.font='700 10px "DM Sans",sans-serif';ctx.fillStyle=p.color;ctx.fillText(`${p.damage}%`,0,43);}
     if(viewPlatforming()&&p.alive){for(let j=0;j<2;j++)circle(-5+j*10,52,2.5,j<2-p.jumps?p.color:'#59606d');}
     ctx.restore();
@@ -347,7 +426,7 @@
       register({name:'select_map',title:'Select a Ringout map',description:'Choose a ready-made or saved map by its listed ID while in the lobby; switches to Platformer.',inputSchema:{type:'object',properties:{id:{type:'string'}},required:['id'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>mapUI.selectById(input?.id)});
     }
     register({name:'set_game_mode',title:'Select Ringout game mode',description:'Switch between the original arena and the side-view platformer while in the lobby. Preserves player controls and win target.',inputSchema:{type:'object',properties:{mode:{type:'string',enum:['arena','platformer']}},required:['mode'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>setGameMode(input?.mode)});
-    register({name:'configure_match',title:'Configure Ringout lobby',description:'Set four keyboard or bot slots, optional per-slot Easy/Normal/Hard bot difficulties, and the round win target in the lobby.',inputSchema:{type:'object',properties:{modes:{type:'array',items:{type:'string',enum:['keyboard','bot']},minItems:4,maxItems:4},target:{type:'integer',enum:[1,3,5]},botDifficulties:{type:'array',items:{type:'string',enum:['easy','normal','hard']},minItems:4,maxItems:4}},required:['modes','target'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{if(!input||!Array.isArray(input.modes)||input.modes.some(m=>!['keyboard','bot'].includes(m)))throw new Error('Provide four keyboard or bot slots.');engine.configure(input.modes,input.target,engine.shrinkTime,engine.lastStanding,input.botDifficulties??engine.botDifficulties);syncBotControls();for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];$('win-target').value=String(engine.target);configure();return engine.snapshot();}});
+    register({name:'configure_match',title:'Configure Ringout lobby',description:'Set four keyboard or bot slots, optional per-slot Easy/Normal/Hard bot difficulties, optional playerCount (2-4), teamMode, teams, and the round win target in the lobby.',inputSchema:{type:'object',properties:{modes:{type:'array',items:{type:'string',enum:['keyboard','bot']},minItems:4,maxItems:4},target:{type:'integer',enum:[1,3,5]},botDifficulties:{type:'array',items:{type:'string',enum:['easy','normal','hard']},minItems:4,maxItems:4},playerCount:{type:'integer',enum:[2,3,4]},teamMode:{type:'boolean'},teams:{type:'array',items:{type:'integer',enum:[0,1]},minItems:4,maxItems:4}},required:['modes','target'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{if(!input||!Array.isArray(input.modes)||input.modes.some(m=>!['keyboard','bot'].includes(m)))throw new Error('Provide four keyboard or bot slots.');engine.configure(input.modes,input.target,engine.shrinkTime,engine.lastStanding,input.botDifficulties??engine.botDifficulties,input.playerCount??engine.playerCount,input.teamMode??engine.teamMode,input.teams??engine.teams);syncBotControls();for(let i=0;i<4;i++)$(`player-${i}`).value=engine.modes[i];$('win-target').value=String(engine.target);configure();return engine.snapshot();}});
     register({name:'start_match',title:'Start Ringout match',description:'Start a new match from the lobby or completed match screen using the selected controls.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{if(!['lobby','matchOver'].includes(engine.phase))throw new Error('A match is already in progress.');start();return engine.snapshot();}});
   }
   setupUI();updatePads();updateUI();requestAnimationFrame(frame);
@@ -376,3 +455,4 @@
 // Updated: 2026-11-04 America/New_York. Changed lines 55, 58, 83, 108-110, 112, 114-116, 133, 349. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
 
 // Updated: 2026-11-04 America/New_York. Changed lines 80-81: copy the validated custom-name array before rebuilding fighters, avoiding false duplicate-name failures during mode changes. Purpose: preserve complete lobby names across Arena/Platformer; upstream: engine.js validated name configuration; environment: browser/Node 24 DOM harness.
+// Updated: 2026-11-04 America/New_York. Added Teams mode toggle, player count selector (2-4), per-slot team selector, team badges, and team victory announcements across Arena and Platformer.

@@ -1,9 +1,9 @@
 // test-controls.cjs
-// Request: Verify bot difficulty controls alongside existing browser input, scoreboard, name and replay behavior.
+// Request: Verify Teams mode, adjustable player count (2-4) and bot difficulty controls alongside existing browser input, scoreboard, name and replay behavior.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { ArenaEngine, COLORS, NAMES, SKINS, PRESET_NAMES } = require('./game/engine.js');
+const { ArenaEngine, COLORS, NAMES, SKINS, PRESET_NAMES, TEAM_NAMES } = require('./game/engine.js');
 const { PlatformerEngine } = require('./game/platformer.js');
 const Maps = require('./game/maps.js');
 const RingoutReplay = require('./game/replay.js');
@@ -28,10 +28,10 @@ function browserHarness(mode, map = Maps.presets[0]) {
     return target;
   }
   function element(id = '') {
-    const select = id.startsWith('player-') || id.startsWith('difficulty-') || id.startsWith('skin-') || id.startsWith('name-select-') || ['win-target','shrink-time','last-standing'].includes(id);
+    const select = id.startsWith('player-') || id.startsWith('difficulty-') || id.startsWith('team-') || id.startsWith('skin-') || id.startsWith('name-select-') || ['win-target','shrink-time','last-standing','player-count','team-mode'].includes(id);
     return eventTarget({
       id, tagName: id === 'arena' ? 'CANVAS' : select ? 'SELECT' : /^(hex|color|name)-/.test(id) ? 'INPUT' : 'BUTTON', attributes: {},
-      value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
+      value: id === 'win-target' ? '3' : id === 'shrink-time' ? '18' : id === 'last-standing' ? 'round' : id === 'player-count' ? '4' : id === 'team-mode' ? 'ffa' : 'keyboard', options: [], style: { setProperty(name, value) { this[name] = value; } }, hidden: false, open: false,
       classList: { add() {}, remove() {}, toggle() {} },
       focus() { document.activeElement = this; },
       setAttribute(name,value) { this.attributes[name]=String(value); },
@@ -68,7 +68,7 @@ function browserHarness(mode, map = Maps.presets[0]) {
     document, window, navigator: { getGamepads: () => connected },
     performance: { now: () => now }, matchMedia: () => ({ matches: false }), devicePixelRatio: 1,
     requestAnimationFrame: callback => { frame = callback; }, AbortController, console,
-    ArenaEngine: ObservedArena, PlatformerEngine: ObservedPlatformer, RingoutReplay, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES, PLAYER_PRESET_NAMES: PRESET_NAMES,
+    ArenaEngine: ObservedArena, PlatformerEngine: ObservedPlatformer, RingoutReplay, PLAYER_COLORS: COLORS, PLAYER_SKINS: SKINS, PLAYER_NAMES: NAMES, PLAYER_PRESET_NAMES: PRESET_NAMES, TEAM_NAMES,
     RingoutMaps: { ...Maps, presets: [map] },
   }, { filename: 'game/game.js' });
   const snapshot = () => tools.get('read_match_state').execute();
@@ -347,8 +347,6 @@ for(const mode of ['arena','platformer']){
   console.log('PASS:',mode,'per-slot difficulty controls, bot-only visibility, mode/control retention, atomic rejection, WebMCP configuration and match/replay locks');
 }
 
-// Updated: 2026-11-04 America/New_York. Changed lines 31, 325-348. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
-
 for(const mode of ['arena','platformer']){
   const ui=browserHarness(mode);
   for(const [id,name] of [[1,'NOVA'],[0,'BLUE']]){
@@ -365,4 +363,91 @@ for(const mode of ['arena','platformer']){
   ui.click('start');assert.deepEqual(Array.from(ui.snapshot().players,p=>p.name),names);
   console.log('PASS:',mode,'overridden default names survive mode changes and match start');
 }
-// Updated: 2026-11-04 America/New_York. Added final name-transfer scenarios: preserve a valid complete lineup whose custom name matches another slot default. Purpose: prevent mode-switch errors; upstream: game.js and engine names; environment: Node 24 simulated DOM.
+
+// Verify adjustable player count (2, 3, 4) and Teams mode across Arena and Platformer
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);
+  ui.configure(['keyboard','keyboard','bot','bot']);
+  for(const count of [2,3,4]){
+    ui.get('player-count').value=String(count);ui.get('player-count').dispatch('change');
+    assert.equal(ui.snapshot().playerCount,count);
+    assert.equal(ui.snapshot().players.length,count);
+    assert.equal(ui.get('lineup-count').textContent,`0${count} / 04`);
+    for(let i=0;i<4;i++)assert.equal(ui.get('row-'+i).hidden,i>=count);
+  }
+  // Switch to 2 players and verify mode retention + full match completion
+  ui.get('player-count').value='2';ui.get('player-count').dispatch('change');
+  ui.get('win-target').value='1';ui.get('win-target').dispatch('change');
+  for(const nextMode of ['platformer','arena',mode]){
+    ui.click('mode-'+nextMode);
+    assert.equal(ui.snapshot().playerCount,2);
+    assert.equal(ui.snapshot().players.length,2);
+  }
+  ui.click('start');ui.tick(3.1);
+  assert.equal(ui.get('player-count').disabled,true);
+  ui.engine.players[1].x=2000;ui.tick(3);
+  assert.equal(ui.snapshot().phase,'matchOver');
+  assert.equal(ui.snapshot().scores[0],1);
+  ui.click('reset');
+
+  // Enable Teams mode with 4 players (Team Alpha: P1 & P3, Team Bravo: P2 & P4)
+  ui.get('player-count').value='4';ui.get('player-count').dispatch('change');
+  ui.click('mode-teams');
+  assert.equal(ui.snapshot().teamMode,true);
+  assert.deepEqual(Array.from(ui.snapshot().teams),[0,1,0,1]);
+  assert.equal(ui.get('team-row-0').hidden,false);
+  // Reject putting all active players on the same team
+  for(const id of [1,3]){ui.get('team-'+id).value='0';ui.get('team-'+id).dispatch('change');}
+  assert.deepEqual(Array.from(ui.snapshot().teams),[0,0,0,1],'at least one active player remains on Team Bravo');
+  ui.get('team-3').value='0';ui.get('team-3').dispatch('change');
+  assert.equal(ui.snapshot().teams[3],1,'cannot remove the last Team Bravo player');
+  assert.match(ui.get('announcement').textContent,/Assign at least one active player to each team/);
+  // Restore 2v2 teams [0, 1, 0, 1] and verify mode retention
+  ui.get('team-1').value='1';ui.get('team-1').dispatch('change');
+  assert.deepEqual(Array.from(ui.snapshot().teams),[0,1,0,1]);
+  for(const nextMode of ['platformer','arena',mode]){
+    ui.click('mode-'+nextMode);
+    assert.equal(ui.snapshot().teamMode,true);
+    assert.deepEqual(Array.from(ui.snapshot().teams),[0,1,0,1]);
+  }
+  // Start Teams match and verify friendly-fire protection & team victory while both teammates survive
+  ui.configure(['keyboard','keyboard','keyboard','keyboard']);
+  ui.click('start');ui.tick(3.1);
+  assert.equal(ui.get('mode-teams').disabled,true);
+  assert.equal(ui.get('team-mode').disabled,true);
+  assert.equal(ui.get('team-0').disabled,true);
+  const [p0,p1,p2,p3]=ui.engine.players;
+  const y=mode==='platformer'?519:354;
+  // Teammates p0 and p2 collide with dash: no damage, no knocks, no hitStun
+  Object.assign(p0,{x:480,y,vx:900,vy:0,dashTime:.1});
+  Object.assign(p2,{x:505,y,vx:0,vy:0});
+  ui.engine.collide(p0,p2);
+  assert.equal(p2.damage,0,'teammate takes zero friendly-fire damage');
+  assert.equal(ui.snapshot().knocks[0],0,'teammate collision does not count as a knock');
+  // Rival p0 hits p1: deals damage and counts knock
+  Object.assign(p0,{x:480,y,vx:900,vy:0,dashTime:.1,hit:new Set()});
+  Object.assign(p1,{x:505,y,vx:0,vy:0});
+  ui.engine.collide(p0,p1);
+  assert(p1.damage>0,'rival takes dash damage in Teams mode');
+  assert.equal(ui.snapshot().knocks[0],1,'rival hit increments knock counter');
+  // Eliminate Team Bravo (p1 and p3) while BOTH Team Alpha players (p0 and p2) remain alive
+  p1.x=2000;p3.x=2000;ui.tick(.05);
+  assert.equal(ui.snapshot().phase,'roundOver','round ends when only one team remains alive');
+  assert.equal(ui.snapshot().roundWinningTeam,0);
+  assert.deepEqual(Array.from(ui.snapshot().teamScores),[1,0]);
+  assert.equal(ui.snapshot().scores[0],1);
+  assert.equal(ui.snapshot().scores[2],1,'both teammates earn the round win');
+  assert.match(ui.get('announcement').textContent,/TEAM ALPHA/);
+  ui.tick(3);
+  assert.equal(ui.snapshot().phase,'matchOver');
+  assert.match(ui.get('overlay-title').innerHTML,/TEAM ALPHA/);
+  assert.match(ui.get('scoreboard').innerHTML,/ALPHA/);
+  assert.match(ui.get('scoreboard').innerHTML,/BRAVO/);
+  // Verify replay preserves teamMode and team badges
+  ui.click('watch-replay');
+  assert.equal(ui.snapshot().replay.watching,true);
+  assert.match(ui.get('scoreboard').innerHTML,/ALPHA/);
+  ui.click('exit-replay');ui.click('reset');
+  console.log('PASS:',mode,'adjustable player count (2-4) and Teams mode (friendly-fire protection, team scoring, mode retention, and replay)');
+}
+// Updated: 2026-11-04 America/New_York. Added adjustable player count (2-4) and Teams mode tests across Arena and Platformer.

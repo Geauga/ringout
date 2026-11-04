@@ -60,5 +60,6 @@
 /* Updated: 2026-11-03 America/New_York. Added line 55: portal endpoint preview ring. Purpose: visible map editor portals. Upstream: map-editor.js. Environment: browser CSS. */
 /* Updated: 2026-11-03 America/New_York. Styled player-name-controls and name-error. */
 
-.bot-difficulty{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;font-size:11px;color:var(--muted)}.bot-difficulty select{width:auto;min-width:90px}.bot-difficulty[hidden]{display:none}
-/* Updated: 2026-11-04 America/New_York. Added final bot-difficulty rule: compact per-slot selector with explicit hidden styling. Purpose: accessible lobby bot settings. Upstream: game.js player-row markup. Environment: browser CSS. */
+.bot-difficulty,.player-team-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;font-size:11px;color:var(--muted)}.bot-difficulty select,.player-team-row select{width:auto;min-width:90px}.bot-difficulty[hidden],.player-team-row[hidden]{display:none}
+.scoreboard[data-players="2"]{grid-template-columns:repeat(2,1fr)}.scoreboard[data-players="3"]{grid-template-columns:repeat(3,1fr)}.team-badge{display:inline-block;padding:1px 5px;border-radius:4px;font-size:8px;font-weight:800;letter-spacing:.7px;margin-left:4px;vertical-align:middle}.team-badge.team-0{background:#85b5ff28;color:#85b5ff;border:1px solid #85b5ff66}.team-badge.team-1{background:#f0c87528;color:#f0c875;border:1px solid #f0c87566}#mode-teams[aria-pressed=true]{background:#85b5ff;color:#141a24}
+/* Updated: 2026-11-04 America/New_York. Added bot-difficulty, player-team-row, dynamic 2/3/4 player scoreboard columns, and Team Alpha/Bravo badges. */

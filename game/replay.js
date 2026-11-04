@@ -1,13 +1,13 @@
 // replay.js
-// Request: Retain isolated bot difficulty settings alongside recorded combat statistics and portals.
+// Request: Retain Teams mode, player count and bot difficulty settings alongside recorded combat statistics and portals.
 (function(root){
   'use strict';
   const copy=value=>JSON.parse(JSON.stringify(value));
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const active=new Set(['countdown','playing','roundOver']);
   function capture(engine,gameMode){
-    return {gameMode,botDifficulties:[...(engine.botDifficulties||['normal','normal','normal','normal'])],phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...(engine.assists||[0,0,0,0])],damageDealt:[...(engine.damageDealt||[0,0,0,0])],knocks:[...(engine.knocks||[0,0,0,0])],customNames:[...(engine.customNames||[null,null,null,null])],players:engine.players.map(p=>{
-      const out={};for(const key of ['id','name','color','skinIndex','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps','portalTrips'])if(p[key]!==undefined)out[key]=p[key];return out;
+    return {gameMode,playerCount:engine.playerCount||engine.players.length||4,teamMode:!!engine.teamMode,teams:[...(engine.teams||[0,1,0,1])],teamScores:[...(engine.teamScores||[0,0])],roundWinningTeam:engine.roundWinningTeam??null,botDifficulties:[...(engine.botDifficulties||['normal','normal','normal','normal'])],phase:engine.phase,round:engine.round,target:engine.target,shrinkTime:engine.shrinkTime,lastStanding:engine.lastStanding,elapsed:engine.elapsed,clock:engine.clock,radius:engine.radius,shrinking:engine.shrinking,scores:[...engine.scores],knockouts:[...engine.knockouts],assists:[...(engine.assists||[0,0,0,0])],damageDealt:[...(engine.damageDealt||[0,0,0,0])],knocks:[...(engine.knocks||[0,0,0,0])],customNames:[...(engine.customNames||[null,null,null,null])],players:engine.players.map(p=>{
+      const out={};for(const key of ['id','name','color','skinIndex','team','x','y','vx','vy','fx','fy','alive','damage','cooldown','dashTime','fall','jumps','portalTrips'])if(p[key]!==undefined)out[key]=p[key];return out;
     }),platforms:engine.platforms?copy(engine.platforms):[]};
   }
   class Recorder{
@@ -64,3 +64,4 @@
 // Updated: 2026-11-03 America/New_York. Added knocks and customNames capture in replay frames.
 
 // Updated: 2026-11-04 America/New_York. Changed lines 9. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
+// Updated: 2026-11-04 America/New_York. Added playerCount, teamMode, teams, teamScores, and roundWinningTeam capture in replay frames.

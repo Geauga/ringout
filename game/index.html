@@ -1,20 +1,20 @@
-<!-- index.html | Request: Add a ranked damage, knockout and assist scoreboard to the four-player game. -->
+<!-- index.html | Request: Add Teams mode and adjustable player count (2-4) alongside ranked scoreboard and bot difficulties. -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14171d">
-  <meta name="description" content="Four fighters. One tiny arena. A local multiplayer knockout game for keyboards and controllers, with bots ready to play.">
+  <meta name="description" content="Two to four fighters. One tiny arena. A local multiplayer knockout game for keyboards and controllers, with free-for-all, teams, and bots ready to play.">
   <title>RINGOUT — Last one standing</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2314171d'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23dcf87b' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=3">
-  <script defer src="engine.js?v=3"></script>
-  <script defer src="maps.js?v=3"></script>
-  <script defer src="platformer.js?v=3"></script>
-  <script defer src="replay.js?v=3"></script>
-  <script defer src="map-editor.js?v=3"></script>
-  <script defer src="game.js?v=3"></script>
+  <link rel="stylesheet" href="style.css?v=4">
+  <script defer src="engine.js?v=4"></script>
+  <script defer src="maps.js?v=4"></script>
+  <script defer src="platformer.js?v=4"></script>
+  <script defer src="replay.js?v=4"></script>
+  <script defer src="map-editor.js?v=4"></script>
+  <script defer src="game.js?v=4"></script>
 </head>
 <body>
   <div class="shell">
@@ -24,7 +24,7 @@
       <div class="header-actions"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false">Sound off</button><button class="text-button" id="help">How to play <span aria-hidden="true">↗</span></button></div>
     </header>
     <main>
-      <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 1–4 PLAYERS</div><h1>Small arena. <span>Big grudges.</span></h1></div><div class="mode-switch" role="group" aria-label="Game mode"><button id="mode-arena" aria-pressed="true">Arena</button><button id="mode-platformer" aria-pressed="false">Platformer</button></div></div>
+      <div class="page-heading"><div><div class="eyebrow"><span class="tiny-ring"></span> LOCAL MULTIPLAYER · 2–4 PLAYERS · FFA &amp; TEAMS</div><h1>Small arena. <span>Big grudges.</span></h1></div><div class="mode-switch" role="group" aria-label="Game mode"><button id="mode-arena" aria-pressed="true">Arena</button><button id="mode-platformer" aria-pressed="false">Platformer</button><button id="mode-teams" aria-pressed="false">Teams</button></div></div>
       <div class="game-layout">
         <section class="arena-panel" aria-label="Game arena">
           <div class="arena-toolbar"><div class="arena-name"><span class="arena-icon">◎</span><span id="stage-name">THE DROP ZONE</span><span class="tag" id="stage-number">01</span></div><div class="arena-actions"><button id="watch-replay" class="text-button" disabled>Watch replay</button><button id="pause" class="text-button" disabled>Pause <kbd>Esc</kbd></button></div></div>
@@ -39,7 +39,7 @@
           </div>
           <section class="match-scoreboard" aria-labelledby="match-scoreboard-title">
             <div class="match-scoreboard-heading"><h3 id="match-scoreboard-title">Match scoreboard<span>.</span></h3><span id="scoreboard-state">NEW MATCH</span></div>
-            <div class="match-scoreboard-scroll" tabindex="0" role="region" aria-label="Match statistics" aria-describedby="scoreboard-note"><table><caption class="sr-only">Match totals for all four players, ranked by round wins, knockouts, assists, then damage dealt. Equal totals share a rank.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Wins</th><th scope="col">KOs</th><th scope="col">Assists</th><th scope="col">Damage dealt</th></tr></thead><tbody id="match-score-rows"></tbody></table></div>
+            <div class="match-scoreboard-scroll" tabindex="0" role="region" aria-label="Match statistics" aria-describedby="scoreboard-note"><table><caption class="sr-only">Match totals for all active players, ranked by round wins, knockouts, assists, then damage dealt. Equal totals share a rank.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Wins</th><th scope="col">KOs</th><th scope="col">Assists</th><th scope="col">Damage dealt</th></tr></thead><tbody id="match-score-rows"></tbody></table></div>
             <p id="scoreboard-note">Wins decide the match. Ties sort by KOs, assists, then damage dealt. Damage dealt counts damage applied across all rounds, up to 250 per rival per round. Each other attacker who hit a rival within 6 seconds of their KO earns one assist. Totals reset for a new match.</p>
           </section>
           <section id="replay-controls" class="replay-controls" aria-label="Match replay controls" hidden>
@@ -52,10 +52,10 @@
         </section>
         <aside class="setup-panel">
           <section class="map-picker" aria-label="Map selection"><div class="section-heading"><h2>The map</h2><span>↗</span></div><p id="map-mode-note" class="section-description">Choose a map to switch to Platformer</p><label class="sr-only" for="map-select">Select map</label><select id="map-select"></select><div class="map-picker-actions"><button id="edit-map" class="text-button">Map editor</button><button id="new-map" class="text-button">+ New map</button><button id="map-reload" class="text-button" aria-label="Reload saved maps">↻</button></div><p id="map-status" class="map-status" role="status"></p></section>
-          <div class="section-heading"><h2>The lineup</h2><span>04 / 04</span></div>
+          <div class="section-heading"><h2>The lineup</h2><span id="lineup-count">04 / 04</span></div>
           <p class="section-description">Bring friends. We’ll fill the empty spots.</p>
           <div id="lineup" class="lineup"></div>
-          <div class="match-rules"><div class="section-heading"><h2>House rules</h2><span>↙</span></div><label class="rule-row" for="win-target"><span>Play until</span><select id="win-target"><option value="3">3 round wins</option><option value="5">5 round wins</option><option value="1">1 round win</option></select></label><label class="rule-row" for="shrink-time"><span id="shrink-rule">Arena shrinks</span><select id="shrink-time"><option value="10">After 10 sec</option><option value="18" selected>After 18 sec</option><option value="30">After 30 sec</option><option value="999">Never</option></select></label><label class="rule-row" for="last-standing"><span>Last one standing</span><select id="last-standing"><option value="round" selected>Wins the round</option><option value="match">Wins the match</option></select></label></div>
+          <div class="match-rules"><div class="section-heading"><h2>House rules</h2><span>↙</span></div><label class="rule-row" for="player-count"><span>Players</span><select id="player-count"><option value="2">2 players</option><option value="3">3 players</option><option value="4" selected>4 players</option></select></label><label class="rule-row" for="team-mode"><span>Format</span><select id="team-mode"><option value="ffa" selected>Free-for-all</option><option value="teams">Teams (Alpha vs Bravo)</option></select></label><label class="rule-row" for="win-target"><span>Play until</span><select id="win-target"><option value="3">3 round wins</option><option value="5">5 round wins</option><option value="1">1 round win</option></select></label><label class="rule-row" for="shrink-time"><span id="shrink-rule">Arena shrinks</span><select id="shrink-time"><option value="10">After 10 sec</option><option value="18" selected>After 18 sec</option><option value="30">After 30 sec</option><option value="999">Never</option></select></label><label class="rule-row" for="last-standing"><span>Last one standing</span><select id="last-standing"><option value="round" selected>Wins the round</option><option value="match">Wins the match</option></select></label></div>
           <div class="tip"><span class="tip-icon">✳</span><p id="mode-tip"><strong>Give them a little nudge.</strong>Dash into rivals to launch them. More damage means more knockback.</p></div>
           <button class="restart-button" id="reset" hidden>Back to lobby</button>
         </aside>
@@ -80,3 +80,4 @@
 
 
 <!-- Updated: 2026-11-03 America/New_York. Changed line 63: add paired-portal checkbox and instructions. Purpose: portal authoring. Upstream: map-editor.js. Environment: browser. -->
+<!-- Updated: 2026-11-04 America/New_York. Added Teams toggle button (#mode-teams) and House Rules selectors for player count (#player-count: 2-4) and match format (#team-mode: FFA / Teams). -->
