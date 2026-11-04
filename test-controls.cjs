@@ -322,3 +322,21 @@ for(const mode of ['arena','platformer']){
   console.log('PASS:',mode,'scoreboard ranking/ties, eliminated-player totals, stat-only updates, replay seeking/isolation and final/new-match displays');
 }
 // Updated: 2026-11-03 America/New_York. Changed line 2 and added lines 288-310: verify rank priorities/ties, eliminated/stat-only updates, final/reset displays and recorded totals during seeking. Purpose: real scoreboard handler regressions; upstream: game.js browser glue and both engines; environment: Node 24 VM/DOM harness.
+
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);
+  for(const [id,name] of [[1,'NOVA'],[0,'BLUE']]){
+    ui.get('name-'+id).value=name;ui.get('name-'+id).dispatch('change');
+    assert.equal(ui.snapshot().players[id].name,name);
+  }
+  const names=Array.from(ui.snapshot().players,p=>p.name);
+  for(const nextMode of ['platformer','arena',mode]){
+    assert.doesNotThrow(()=>ui.click('mode-'+nextMode),'copy names as a complete lineup');
+    assert.equal(ui.snapshot().gameMode,nextMode);
+    assert.deepEqual(Array.from(ui.snapshot().players,p=>p.name),names);
+    assert.deepEqual(Array.from(ui.snapshot().customNames),['BLUE','NOVA',null,null]);
+  }
+  ui.click('start');assert.deepEqual(Array.from(ui.snapshot().players,p=>p.name),names);
+  console.log('PASS:',mode,'overridden default names survive mode changes and match start');
+}
+// Updated: 2026-11-04 America/New_York. Added final name-transfer scenarios: preserve a valid complete lineup whose custom name matches another slot default. Purpose: prevent mode-switch errors; upstream: game.js and engine names; environment: Node 24 simulated DOM.

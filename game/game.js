@@ -77,7 +77,8 @@
     const next=mode==='platformer'?new PlatformerEngine():new ArenaEngine();
     engine.skins.forEach((skin,id)=>next.setSkin(id,skin));
     engine.customColors.forEach((color,id)=>{if(color)next.setColor(id,color);});
-    engine.customNames.forEach((name,id)=>{if(name)next.setName(id,name);});
+    // Preserve the already validated lineup without transient collisions with default names.
+    next.customNames=[...engine.customNames];next.makeRound();
     if(mode==='platformer')next.setMap(selectedMap);
     next.configure(engine.modes,engine.target);engine=next;hudSignature='';accumulator=0;effects.length=0;trails.length=0;
     resetInput();applyModeUI();configure();updateUI();return matchSnapshot();
@@ -365,3 +366,4 @@
 
 // Updated: 2026-11-03 America/New_York. Changed lines 148, 236. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
 // Updated: 2026-11-03 America/New_York. Added player preset/custom name selector with safety validation, mode retention, match/replay locks, and knock counters on scoreboard and match-over screen.
+// Updated: 2026-11-04 America/New_York. Changed lines 80-81: copy the validated custom-name array before rebuilding fighters, avoiding false duplicate-name failures during mode changes. Purpose: preserve complete lobby names across Arena/Platformer; upstream: engine.js validated name configuration; environment: browser/Node 24 DOM harness.
