@@ -78,6 +78,15 @@ assert.equal((await send('/api/maps/'+saved.id,{body:{map:basic,revision:1}})).s
 assert.equal((await send('/api/maps/'+saved.id,{body:{action:'delete',revision:1}})).status,409,'stale delete rejected');
 assert.equal((await send('/api/maps/'+saved.id,{body:{action:'delete',revision:2}})).status,200);
 assert.equal((await (await send('/api/maps')).json()).maps.length,0);
+const portalMap=Maps.presets.find(m=>m.id==='portal-junction');
+const portalResponse=await send('/api/maps',{body:{map:portalMap}});assert.equal(portalResponse.status,201);
+const portalSaved=(await portalResponse.json()).map;
+DB.close();DB=openDatabase(filename,migrations);
+const portalReload=(await (await send('/api/maps')).json()).maps[0];
+assert.equal(portalReload.platforms.filter(p=>p.portal).length,2,'portal pair persists after database restart');
+const brokenPortal=clone(portalMap);brokenPortal.platforms[1].portal=false;
+assert.equal((await send('/api/maps',{body:{map:brokenPortal}})).status,400,'API rejects an unpaired portal');
+assert.equal((await send('/api/maps/'+portalSaved.id,{body:{action:'delete',revision:1}})).status,200);
 const concurrent=await Promise.all(Array.from({length:55},(_,i)=>send('/api/maps',{body:{map:{...basic,name:'Map '+i}}})));
 assert.equal(concurrent.filter(r=>r.status===201).length,50);assert.equal(concurrent.filter(r=>r.status===409).length,5);
 assert.equal((await (await send('/api/maps')).json()).maps.length,50,'atomic library bound');
@@ -90,3 +99,5 @@ DB.close();console.log('PASS: map API same-origin checks, bounded input, create/
 // Updated: 2026-10-03 America/New_York. Lines 32,46,52,56 verify jump-pad API validation, save and restart persistence. Purpose: protect stored feature data; upstream: maps API and shared schema; environment: Node 24/SQLite.
 // Updated: 2026-10-04 America/New_York. Lines 2,39,61 remove obsolete authentication fixtures; 63-64 exercise visible storage failure handling and describe current API checks. Purpose: map regression coverage; upstream: worker/maps-api and local SQLite; environment: Node 24 built-ins.
 // Updated: 2026-10-09 America/New_York. Changed lines 2,12-35: check advanced presets for full independent travel clearance, safe separated starts and reachable routes using actual moving-platform snapshots. Purpose: validate complex maps beyond their initial pose; upstream: maps.js definitions and platformer.js simulation; environment: Node 24/SQLite.
+
+// Updated: 2026-11-03 America/New_York. Changed lines 81-89. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
