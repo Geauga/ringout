@@ -107,3 +107,11 @@ DB.close();console.log('PASS: map API same-origin checks, bounded input, create/
 // Updated: 2026-11-03 America/New_York. Changed lines 81-89. Purpose: paired Platformer portals and compatibility checks. Upstream: existing map definitions, platform simulation, editor, rendering and replay capture. Environment: browser / Node 24 / Workers. Changes: portal validation/preset, swept momentum-preserving traversal with cooldown, editor/render feedback, replay discontinuities or corresponding behavioral tests, as applicable.
 
 // Updated: 2026-11-04 America/New_York. Changed lines 12-15, 39, 42, 47, 50, 62. Purpose: six additional editable Platformer stages. Changes: new motion/pad/portal layouts, full-cycle clearance/reachability and bot difficulty coverage, or editor round-trip checks as applicable. Upstream: existing maps.js presets, Platformer simulation and map editor. Environment: browser / Node 24 / Workers.
+
+{
+  const g=new Platformer.PlatformerEngine();g.setMap(Maps.presets.find(m=>m.id==='moving-grounds'));
+  const before=JSON.stringify(g.mapDefinition),snapshot=g.snapshot();snapshot.platforms.find(p=>p.motion).motion.distance=9999;
+  assert.equal(JSON.stringify(g.mapDefinition),before,'snapshot motion must not mutate validated map geometry');
+  assert.notEqual(g.platforms.find(p=>p.motion).motion.distance,9999,'snapshot motion must not mutate live motion');
+}
+// Updated: 2026-11-05 America/New_York. Added nested motion snapshot mutation regression. Purpose: retain independent validated map state; upstream: platformer snapshots; environment: Node 24/SQLite.

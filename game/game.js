@@ -48,9 +48,8 @@
   }
   function choosePresetName(id,value){
     if(engine.phase!=='lobby'||replayPlayer)return;
-    if(value===''){engine.resetName(id);syncPlayerName(id);hudSignature='';updateUI();return;}
     if(value==='custom'){$('name-'+id).focus();return;}
-    try{engine.setName(id,value);}catch(error){syncPlayerName(id);$('name-'+id).setAttribute('aria-invalid','true');$('name-error-'+id).textContent=error.message;return;}
+    try{if(value==='')engine.resetName(id);else engine.setName(id,value);}catch(error){syncPlayerName(id);$('name-'+id).setAttribute('aria-invalid','true');$('name-error-'+id).textContent=error.message;return;}
     syncPlayerName(id);hudSignature='';updateUI();
   }
   function toggleTeams(){
@@ -71,7 +70,10 @@
       $('player-'+i).value=engine.modes[i];$('player-'+i).addEventListener('change',configure);
       $('difficulty-'+i).value=engine.botDifficulties[i];$('difficulty-'+i).addEventListener('change',configure);
       $('team-'+i).value=String(engine.teams[i]);$('team-'+i).addEventListener('change',configure);
-      $('skin-'+i).addEventListener('change',e=>{engine.setSkin(i,parseInt(e.target.value,10));syncPlayerColor(i);syncPlayerName(i);hudSignature='';updateUI();});
+      $('skin-'+i).addEventListener('change',e=>{
+        try{engine.setSkin(i,parseInt(e.target.value,10));}catch(error){e.target.value=String(engine.skins[i]);syncPlayerName(i);$('name-'+i).setAttribute('aria-invalid','true');$('name-error-'+i).textContent=error.message;return;}
+        syncPlayerColor(i);syncPlayerName(i);hudSignature='';updateUI();
+      });
       $('name-select-'+i).addEventListener('change',()=>choosePresetName(i,$('name-select-'+i).value));
       for(const event of ['input','change']){
         $('name-'+i).addEventListener(event,()=>choosePlayerName(i,$('name-'+i).value));
@@ -456,3 +458,4 @@
 
 // Updated: 2026-11-04 America/New_York. Changed lines 80-81: copy the validated custom-name array before rebuilding fighters, avoiding false duplicate-name failures during mode changes. Purpose: preserve complete lobby names across Arena/Platformer; upstream: engine.js validated name configuration; environment: browser/Node 24 DOM harness.
 // Updated: 2026-11-04 America/New_York. Added Teams mode toggle, player count selector (2-4), per-slot team selector, team badges, and team victory announcements across Arena and Platformer.
+// Updated: 2026-11-05 America/New_York. Changed preset-name and skin handlers (lines 47-77): handle rejected resets/skins, restore selectors and display existing name feedback. Purpose: usable atomic name-conflict rejection; upstream: engine.js setters and lobby controls; environment: browser DOM / Node 24 harness.

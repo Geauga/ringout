@@ -60,3 +60,13 @@ for(const Engine of [ArenaEngine,PlatformerEngine]){
 // Purpose: Protect actual fighter colors, validated names, knock counters, and stable lobby/match state.
 // Upstream: engine.js owns skins/custom colors/names/knocks; platformer.js inherits their round lifecycle.
 // Environment: Node 24 built-in assertions. Generated: 2026-10-11 America/New_York. Updated: 2026-11-03 America/New_York.
+
+for(const Engine of [ArenaEngine,PlatformerEngine]){
+  let g=new Engine();g.setName(1,'NOVA');g.setName(0,'BLUE');g.setColor(1,'#123456');
+  let before=JSON.stringify(g.snapshot());assert.throws(()=>g.resetName(1),/unique/);assert.equal(JSON.stringify(g.snapshot()),before);
+  g=new Engine();g.setName(0,'PEACH');g.setColor(1,'#123456');before=JSON.stringify(g.snapshot());
+  assert.throws(()=>g.setSkin(1,9),/unique/);assert.equal(JSON.stringify(g.snapshot()),before);
+  g.setName(0,'NOVA');g.setSkin(1,9);assert.equal(g.players[1].name,'PEACH');
+  console.log('PASS:',Engine.name,'skin/reset collisions with chosen names reject atomically and recover');
+}
+// Updated: 2026-11-05 America/New_York. Added final reset/skin collision regressions. Purpose: preserve chosen-name uniqueness and rejected-state atomicity; upstream: engine name/skin setters; environment: Node 24.

@@ -213,7 +213,7 @@
       if(bHits){a.vy=Math.min(a.vy,-290-a.damage*.7);a.hitStun=.24;a.grounded=false;a.support=null;}
     }
     snapshot() {
-      return {...super.snapshot(),gameMode:'platformer',mapName:this.mapDefinition.name,platforms:this.platforms.map(s=>({...s})),players:this.players.map(({id,name,color,team,alive,damage,x,y,vx,vy,cooldown,grounded,jumps})=>({id,name,color,team,alive,damage,x,y,vx,vy,cooldown,grounded,jumps}))};
+      return {...super.snapshot(),gameMode:'platformer',mapName:this.mapDefinition.name,platforms:this.platforms.map(s=>({...s,motion:s.motion?{...s.motion}:s.motion})),players:this.players.map(({id,name,color,team,alive,damage,x,y,vx,vy,cooldown,grounded,jumps})=>({id,name,color,team,alive,damage,x,y,vx,vy,cooldown,grounded,jumps}))};
     }
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={PlatformerEngine};else root.PlatformerEngine=PlatformerEngine;
@@ -237,3 +237,4 @@
 // Updated: 2026-11-04 America/New_York. Changed lines 29, 32, 38, 47, 49, 51, 54, 57-58. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
 // Integration: 2026-11-04 America/New_York. Route decisions retain per-slot reaction/jitter, control, target lead, recovery margin, jump delay, dodge and dash probability. Upstream: incoming bot profiles; environment: browser / Node 24.
 // Updated: 2026-11-04 America/New_York. Added Teams mode and adjustable player count (2-4) support in PlatformerEngine.
+// Updated: 2026-11-05 America/New_York. Changed line 216: independently copy nested motion in platform snapshots. Purpose: prevent snapshot consumers mutating live/validated movement paths; upstream: existing map validation and snapshots; environment: browser / Node 24.

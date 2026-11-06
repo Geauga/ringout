@@ -85,7 +85,9 @@
     }
     setSkin(id, skinIndex) {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing skins.');
-      this.skins[id] = skinIndex % SKINS.length;
+      const nextSkin=skinIndex % SKINS.length;
+      if(!this.customNames[id]&&[0,1,2,3].some(other=>other!==id&&this.customNames[other]===SKINS[nextSkin]?.name))throw new Error('Each player must have a unique name.');
+      this.skins[id] = nextSkin;
       this.customColors[id] = null;
       this.makeRound();
     }
@@ -111,6 +113,8 @@
     resetName(id) {
       if(this.phase !== 'lobby') throw new Error('Return to the lobby before changing names.');
       if(!Number.isInteger(id)||id<0||id>3) throw new Error('Choose a player from 1 to 4.');
+      const name=(SKINS[this.skins[id]]||SKINS[id]).name;
+      if(this.customNames[id]&&[0,1,2,3].some(other=>other!==id&&(this.customNames[other]||(SKINS[this.skins[other]]||SKINS[other]).name)===name))throw new Error('Each player must have a unique name.');
       this.customNames[id] = null;
       this.makeRound();
     }
@@ -277,3 +281,4 @@
 
 // Updated: 2026-11-04 America/New_York. Changed lines 30-34, 36, 76, 82, 85, 87, 113, 116, 119-120, 178. Purpose: independent Easy/Normal/Hard bots and configuration compatibility. Changes: validated per-slot settings, difficulty-driven decisions, lobby/mode/replay retention or corresponding UI checks, according to this file. Upstream: existing engine/platformer bots and lobby/replay configuration. Environment: browser / Node 24+.
 // Updated: 2026-11-04 America/New_York. Added Teams mode (teamMode, teams, teamScores, friendly-fire protection, team-aware bots, team round/match victory) and adjustable player count (2-4 players).
+// Updated: 2026-11-05 America/New_York. Changed setSkin/resetName (lines 86-119): check chosen-name collisions before changing skins, color overrides or names; retain shared default skins. Purpose: atomic name uniqueness; upstream: existing custom-name validation; environment: browser / Node 24.

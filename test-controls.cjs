@@ -451,3 +451,17 @@ for(const mode of ['arena','platformer']){
   console.log('PASS:',mode,'adjustable player count (2-4) and Teams mode (friendly-fire protection, team scoring, mode retention, and replay)');
 }
 // Updated: 2026-11-04 America/New_York. Added adjustable player count (2-4) and Teams mode tests across Arena and Platformer.
+
+for(const mode of ['arena','platformer']){
+  const ui=browserHarness(mode);
+  for(const [id,name] of [[1,'NOVA'],[0,'BLUE']]){ui.get('name-'+id).value=name;ui.get('name-'+id).dispatch('change');}
+  let before=JSON.stringify(ui.snapshot());ui.get('name-select-1').value='';
+  assert.doesNotThrow(()=>ui.get('name-select-1').dispatch('change'));
+  assert.equal(JSON.stringify(ui.snapshot()),before);assert.equal(ui.get('name-select-1').value,'NOVA');assert.match(ui.get('name-error-1').textContent,/unique/);
+  ui.get('name-0').value='PEACH';ui.get('name-0').dispatch('change');ui.get('name-select-1').value='';ui.get('name-select-1').dispatch('change');
+  before=JSON.stringify(ui.snapshot());ui.get('skin-1').value='9';
+  assert.doesNotThrow(()=>ui.get('skin-1').dispatch('change'));assert.equal(JSON.stringify(ui.snapshot()),before);
+  assert.equal(ui.get('skin-1').value,'1');assert.match(ui.get('name-error-1').textContent,/unique/);
+  console.log('PASS:',mode,'name-reset and skin conflicts preserve state, restore selectors and show feedback');
+}
+// Updated: 2026-11-05 America/New_York. Added final reset/skin event regressions. Purpose: prevent duplicate chosen names and uncaught UI errors; upstream: game.js event handlers; environment: Node 24 DOM harness.
